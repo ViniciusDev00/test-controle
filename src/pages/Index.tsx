@@ -1,4 +1,4 @@
-// ARQUIVO: src/pages/Index.tsx
+// ARQUIVO: src/pages/Index.tsx (FINAL)
 
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
@@ -24,6 +24,14 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { startOfWeek, endOfWeek, startOfMonth, endOfMonth, subDays, formatISO } from "date-fns";
+// Importações das novas bibliotecas (APENAS DEPOIS DE INSTALAR)
+// import * as XLSX from 'xlsx'; 
+// import { jsPDF } from 'jspdf';
+// import 'jspdf-autotable'; 
+
+// Adicione estes tipos para usar a função de exportação na interface do HistoricoMovimentacoes
+type ExportFormat = 'csv' | 'xlsx' | 'pdf';
+type PeriodoFiltro = 'hoje' | 'semana' | 'mes' | 'todos';
 
 interface Chapa {
   id: string;
@@ -42,8 +50,6 @@ interface Profile {
   role: string;
   nome: string;
 }
-
-type PeriodoFiltro = 'hoje' | 'semana' | 'mes' | 'todos';
 
 const Index = () => {
   const navigate = useNavigate();
@@ -258,28 +264,97 @@ const Index = () => {
     setChapaToDelete(null);
   };
   
-  // FUNÇÃO DE EXPORTAÇÃO MOCK para CSV (O usuário pode abrir este arquivo no Excel/Sheets)
-  const handleExportarHistorico = (dados: any[], periodo: PeriodoFiltro) => {
+  // FUNÇÃO DE EXPORTAÇÃO MÚLTIPLA
+  const handleExportarHistorico = (dados: any[], periodo: PeriodoFiltro, formato: ExportFormat) => {
       if (dados.length === 0) return;
       
-      // Cria o cabeçalho e as linhas no formato CSV
-      const headers = Object.keys(dados[0]).join(",");
-      const rows = dados.map(e => Object.values(e).join(",")).join("\n");
-      const csvContent = `${headers}\n${rows}`;
-
-      // Cria um link temporário para download
-      const encodedUri = encodeURI(`data:text/csv;charset=utf-8,${csvContent}`);
-      const link = document.createElement("a");
-      link.setAttribute("href", encodedUri);
-      link.setAttribute("download", `historico_${periodo}_${formatISO(new Date(), { format: 'basic' })}.csv`);
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
+      const fileName = `historico_${periodo}_${formatISO(new Date(), { format: 'basic' })}`;
       
-      toast({
-        title: "Exportação Concluída",
-        description: `O histórico de ${periodo} foi exportado como CSV.`,
-      });
+      switch (formato) {
+        case 'xlsx':
+            // ----------------------------------------------------
+            // LÓGICA PARA XLSX (SheetJS)
+            // Descomentar esta seção após rodar 'npm install xlsx'
+            // ----------------------------------------------------
+            /*
+            const ws = XLSX.utils.json_to_sheet(dados);
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, "Movimentações");
+            XLSX.writeFile(wb, `${fileName}.xlsx`);
+            */
+            // Se você não instalou, ele fará o fallback para CSV
+            // ----------------------------------------------------
+            
+            // FALLBACK para CSV SE XLSX não estiver instalado
+            const headersCSV = Object.keys(dados[0]).join(",");
+            const rowsCSV = dados.map(e => Object.values(e).join(",")).join("\n");
+            const csvContent = `${headersCSV}\n${rowsCSV}`;
+            const encodedUri = encodeURI(`data:text/csv;charset=utf-8,${csvContent}`);
+            const link = document.createElement("a");
+            link.setAttribute("href", encodedUri);
+            link.setAttribute("download", `${fileName}.csv`); // Exporta como CSV
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            
+            toast({
+                title: "Exportação CSV Concluída",
+                description: `O histórico foi exportado como CSV. Instale a lib 'xlsx' para habilitar .xlsx.`,
+            });
+            break;
+            
+        case 'pdf':
+            // ----------------------------------------------------
+            // LÓGICA PARA PDF (jsPDF + autotable)
+            // Descomentar esta seção após rodar 'npm install jspdf jspdf-autotable'
+            // ----------------------------------------------------
+            /*
+            const doc = new jsPDF();
+            const head = [Object.keys(dados[0])];
+            const body = dados.map(row => Object.values(row));
+            
+            (doc as any).autoTable({ 
+                head: head, 
+                body: body, 
+                startY: 10,
+                headStyles: { fillColor: [52, 73, 94] },
+                margin: { top: 15 }
+            });
+            
+            doc.save(`${fileName}.pdf`);
+            
+            toast({
+                title: "Exportação PDF Concluída",
+                description: `O histórico de ${periodo} foi exportado como PDF.`,
+            });
+            */
+            // Lógica alternativa para PDF não implementada sem a lib
+            toast({
+                title: "Exportação não suportada",
+                description: `Instale as libs 'jspdf' e 'jspdf-autotable' para habilitar o PDF.`,
+            });
+            break;
+            
+        case 'csv':
+        default:
+            const headersDefault = Object.keys(dados[0]).join(",");
+            const rowsDefault = dados.map(e => Object.values(e).join(",")).join("\n");
+            const csvContentDefault = `${headersDefault}\n${rowsDefault}`;
+
+            const encodedUriDefault = encodeURI(`data:text/csv;charset=utf-8,${csvContentDefault}`);
+            const linkDefault = document.createElement("a");
+            linkDefault.setAttribute("href", encodedUriDefault);
+            linkDefault.setAttribute("download", `${fileName}.csv`); 
+            document.body.appendChild(linkDefault);
+            linkDefault.click();
+            document.body.removeChild(linkDefault);
+            
+            toast({
+                title: "Exportação Concluída",
+                description: `O histórico de ${periodo} foi exportado como CSV.`,
+            });
+            break;
+      }
   };
 
 
