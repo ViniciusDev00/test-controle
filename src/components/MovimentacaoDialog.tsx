@@ -1,3 +1,5 @@
+// ARQUIVO: src/components/MovimentacaoDialog.tsx (FINAL VERSION)
+
 import { useState } from "react";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -58,9 +60,11 @@ const MovimentacaoDialog = ({ open, onOpenChange, chapa, tipo, onSuccess }: Movi
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("Usuário não autenticado");
 
-      // CÁLCULO DO PESO (Implementação da lógica solicitada)
+      // CÁLCULO DO PESO (Lógica de dedução automática)
       // 1. Calcula o Peso Unitário a partir do estoque atual (Peso Total / Quantidade Atual).
-      const pesoUnitario = chapa.quantidade > 0 ? chapa.peso / chapa.quantidade : 0;
+      // Usa Math.abs para garantir que o peso unitário seja positivo
+      const pesoUnitario = chapa.quantidade > 0 ? Math.abs(chapa.peso) / chapa.quantidade : 0; 
+      
       // 2. Calcula a alteração de peso total.
       const pesoMovimentado = pesoUnitario * qtd;
 
@@ -72,6 +76,7 @@ const MovimentacaoDialog = ({ open, onOpenChange, chapa, tipo, onSuccess }: Movi
       const novoPesoTotal = tipo === "entrada" 
         ? chapa.peso + pesoMovimentado 
         : chapa.peso - pesoMovimentado;
+        
       // Garante que o peso total não seja negativo
       const pesoFinal = Math.max(0, novoPesoTotal); 
 
