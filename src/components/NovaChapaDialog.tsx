@@ -1,5 +1,3 @@
-// ARQUIVO: src/components/NovaChapaDialog.tsx
-
 import { useState } from "react";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -25,7 +23,7 @@ const NovaChapaDialog = ({ open, onOpenChange, onSuccess }: NovaChapaDialogProps
     comprimento: "",
     localizacao: "",
     quantidade: "",
-    peso_unitario: "", // MODIFICADO: Campo para capturar o peso por unidade
+    peso_unitario: "",
   });
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -36,7 +34,6 @@ const NovaChapaDialog = ({ open, onOpenChange, onSuccess }: NovaChapaDialogProps
     const quantity = parseInt(formData.quantidade);
 
     try {
-      // CÁLCULO: Inicializa o Peso Total em Estoque (Unitário * Quantidade)
       const totalWeight = unitWeight * quantity; 
 
       const { error } = await supabase.from("chapas").insert({
@@ -47,7 +44,7 @@ const NovaChapaDialog = ({ open, onOpenChange, onSuccess }: NovaChapaDialogProps
         comprimento: parseFloat(formData.comprimento),
         localizacao: formData.localizacao || null,
         quantidade: quantity,
-        peso: totalWeight, // MODIFICADO: Insere o Peso Total Inicial na coluna 'peso'
+        peso: totalWeight,
       });
 
       if (error) throw error;

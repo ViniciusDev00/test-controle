@@ -1,5 +1,3 @@
-// ARQUIVO: src/components/MovimentacaoDialog.tsx (FINAL VERSION)
-
 import { useState } from "react";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -14,7 +12,7 @@ interface Chapa {
   codigo: string;
   descricao: string;
   quantidade: number;
-  peso: number; // Peso Total em Estoque
+  peso: number;
 }
 
 interface MovimentacaoDialogProps {
@@ -60,15 +58,10 @@ const MovimentacaoDialog = ({ open, onOpenChange, chapa, tipo, onSuccess }: Movi
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("Usuário não autenticado");
 
-      // CÁLCULO DO PESO (Lógica de dedução automática)
-      // 1. Calcula o Peso Unitário a partir do estoque atual (Peso Total / Quantidade Atual).
-      // Usa Math.abs para garantir que o peso unitário seja positivo
       const pesoUnitario = chapa.quantidade > 0 ? Math.abs(chapa.peso) / chapa.quantidade : 0; 
       
-      // 2. Calcula a alteração de peso total.
       const pesoMovimentado = pesoUnitario * qtd;
 
-      // 3. Calcula nova Quantidade e Novo Peso Total.
       const novaQuantidade = tipo === "entrada" 
         ? chapa.quantidade + qtd 
         : chapa.quantidade - qtd;
@@ -77,10 +70,8 @@ const MovimentacaoDialog = ({ open, onOpenChange, chapa, tipo, onSuccess }: Movi
         ? chapa.peso + pesoMovimentado 
         : chapa.peso - pesoMovimentado;
         
-      // Garante que o peso total não seja negativo
       const pesoFinal = Math.max(0, novoPesoTotal); 
 
-      // Registrar movimentação
       const { error: movError } = await supabase.from("movimentacoes").insert({
         chapa_id: chapa.id,
         usuario_id: user.id,
@@ -91,12 +82,11 @@ const MovimentacaoDialog = ({ open, onOpenChange, chapa, tipo, onSuccess }: Movi
 
       if (movError) throw movError;
 
-      // Atualizar quantidade e peso total da chapa (campo 'peso' no DB)
       const { error: updateError } = await supabase
         .from("chapas")
         .update({ 
           quantidade: novaQuantidade, 
-          peso: pesoFinal // Atualiza o Peso Total
+          peso: pesoFinal
         })
         .eq("id", chapa.id);
 

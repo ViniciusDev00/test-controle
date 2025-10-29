@@ -1,5 +1,3 @@
-// ARQUIVO: src/components/ChapasList.tsx
-
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -73,7 +71,6 @@ const ChapasList = ({ chapas, userRole, onDescontar, onAdicionar, onEditar, onEx
                   <TableCell className="text-right">
                     <div className="flex gap-2 justify-end">
                       
-                      {/* Controlador pode ADICIONAR, DESCONTAR, EDITAR e EXCLUIR */}
                       {userRole === "controlador" && (
                         <>
                           <Button size="sm" variant="outline" onClick={() => onAdicionar(chapa)} title="Adicionar">
@@ -98,7 +95,6 @@ const ChapasList = ({ chapas, userRole, onDescontar, onAdicionar, onEditar, onEx
                         </>
                       )}
                       
-                      {/* Operador pode apenas DESCONTAR */}
                       {userRole === "operador" && chapa.quantidade > 0 && (
                         <Button
                           size="sm"

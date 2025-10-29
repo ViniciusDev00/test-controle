@@ -1,5 +1,3 @@
-// ARQUIVO: src/components/HistoricoMovimentacoes.tsx (FINAL)
-
 import { useEffect, useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -38,7 +36,7 @@ type ExportFormat = 'csv' | 'xlsx' | 'pdf';
 interface HistoricoMovimentacoesProps {
   periodoFiltro: PeriodoFiltro;
   onPeriodoChange: (periodo: PeriodoFiltro) => void;
-  onExportar: (dados: any[], periodo: PeriodoFiltro, formato: ExportFormat) => void; // NOVO: ExportFormat
+  onExportar: (dados: any[], periodo: PeriodoFiltro, formato: ExportFormat) => void;
   getPeriodDates: (periodo: PeriodoFiltro) => { startDate: Date | null, endDate: Date | null };
 }
 
@@ -52,11 +50,9 @@ const HistoricoMovimentacoes = ({
   const [movimentacoes, setMovimentacoes] = useState<Movimentacao[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // useEffect reage à mudança de período para buscar novos dados
   useEffect(() => {
     loadMovimentacoes();
 
-    // Apenas a inscrição de tempo real deve ser mantida constante
     const channel = supabase
       .channel("movimentacoes-changes")
       .on(
@@ -75,7 +71,7 @@ const HistoricoMovimentacoes = ({
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [periodoFiltro]); // Dependência garante a nova busca
+  }, [periodoFiltro]);
 
   const loadMovimentacoes = async () => {
     setLoading(true);
@@ -88,7 +84,6 @@ const HistoricoMovimentacoes = ({
       `)
       .order("created_at", { ascending: false });
     
-    // Lógica de Filtro por Período
     const { startDate, endDate } = getPeriodDates(periodoFiltro);
 
     if (startDate) {
@@ -98,7 +93,6 @@ const HistoricoMovimentacoes = ({
       query = query.lte("created_at", endDate.toISOString());
     }
     
-    // Limita a 500 para evitar sobrecarga (ou 20 para visualização rápida)
     if (periodoFiltro !== 'todos') { 
         query = query.limit(20); 
     } else {
@@ -109,15 +103,12 @@ const HistoricoMovimentacoes = ({
     const { data, error } = await query;
 
     if (!error && data) {
-      // Ajuste de tipo para incluir o null/desconhecido para o frontend
       setMovimentacoes(data as unknown as Movimentacao[]); 
     }
     setLoading(false);
   };
   
-  // Função que prepara e chama a exportação (CSV)
   const handleExportClick = (formato: ExportFormat) => {
-      // Mapeia os dados para um formato simples de exportação (CSV)
       const dadosParaExportar = movimentacoes.map(mov => ({
           DataHora: format(new Date(mov.created_at), "dd/MM/yyyy HH:mm", { locale: ptBR }),
           Tipo: mov.tipo === "entrada" ? "Entrada" : "Saída",
@@ -145,7 +136,6 @@ const HistoricoMovimentacoes = ({
             </div>
             
             <div className="flex gap-2 items-center">
-                {/* Controles de Filtro de Período */}
                 <ToggleGroup 
                   type="single" 
                   value={periodoFiltro} 
@@ -158,7 +148,6 @@ const HistoricoMovimentacoes = ({
                     <ToggleGroupItem value="todos" aria-label="Filtro Todos">Todos</ToggleGroupItem>
                 </ToggleGroup>
                 
-                {/* Botão de Exportação com Dropdown */}
                 <DropdownMenu>
                     <DropdownMenuTrigger asChild>
                         <Button 

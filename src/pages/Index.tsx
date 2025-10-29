@@ -1,5 +1,3 @@
-// ARQUIVO: src/pages/Index.tsx (FINAL)
-
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
@@ -24,12 +22,10 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { startOfWeek, endOfWeek, startOfMonth, endOfMonth, subDays, formatISO } from "date-fns";
-// Importações das novas bibliotecas (APENAS DEPOIS DE INSTALAR)
-// import * as XLSX from 'xlsx'; 
-// import { jsPDF } from 'jspdf';
-// import 'jspdf-autotable'; 
+import * as XLSX from 'xlsx'; 
+import { jsPDF } from 'jspdf';
+import 'jspdf-autotable';
 
-// Adicione estes tipos para usar a função de exportação na interface do HistoricoMovimentacoes
 type ExportFormat = 'csv' | 'xlsx' | 'pdf';
 type PeriodoFiltro = 'hoje' | 'semana' | 'mes' | 'todos';
 
@@ -64,11 +60,9 @@ const Index = () => {
   const [movimentacaoTipo, setMovimentacaoTipo] = useState<"entrada" | "saida">("entrada");
   const [novaChapaOpen, setNovaChapaOpen] = useState(false);
   
-  // ESTADOS DE EXCLUSÃO
   const [deleteChapaOpen, setDeleteChapaOpen] = useState(false);
   const [chapaToDelete, setChapaToDelete] = useState<Chapa | null>(null);
 
-  // ESTADO DE FILTRO ESTATÍSTICAS
   const [periodoFiltro, setPeriodoFiltro] = useState<PeriodoFiltro>('mes'); 
 
   const [stats, setStats] = useState({
@@ -136,7 +130,6 @@ const Index = () => {
     setFilteredChapas(filtered);
   }, [searchTerm, chapas]);
 
-  // NOVO HELPER: Obtém os limites de data para a consulta SQL (passado via props)
   const getPeriodDates = (periodo: PeriodoFiltro) => {
     const now = new Date();
     let startDate: Date;
@@ -144,11 +137,10 @@ const Index = () => {
 
     switch (periodo) {
       case 'hoje':
-        // Filtra as últimas 24 horas
         startDate = subDays(now, 1);
         break;
       case 'semana':
-        startDate = startOfWeek(now, { weekStartsOn: 0 }); // Domingo
+        startDate = startOfWeek(now, { weekStartsOn: 0 });
         endDate = endOfWeek(now, { weekStartsOn: 0 });
         break;
       case 'mes':
@@ -157,7 +149,7 @@ const Index = () => {
         break;
       case 'todos':
       default:
-        return { startDate: null, endDate: null }; // Sem filtro
+        return { startDate: null, endDate: null };
     }
     return { 
       startDate: startDate, 
@@ -231,13 +223,11 @@ const Index = () => {
     setMovimentacaoOpen(true);
   };
   
-  // LÓGICA DE EXCLUSÃO (1/2)
   const handleExcluir = (chapa: Chapa) => {
     setChapaToDelete(chapa);
     setDeleteChapaOpen(true);
   };
 
-  // LÓGICA DE EXCLUSÃO (2/2)
   const confirmExclusao = async () => {
     if (!chapaToDelete) return;
 
@@ -264,7 +254,6 @@ const Index = () => {
     setChapaToDelete(null);
   };
   
-  // FUNÇÃO DE EXPORTAÇÃO MÚLTIPLA
   const handleExportarHistorico = (dados: any[], periodo: PeriodoFiltro, formato: ExportFormat) => {
       if (dados.length === 0) return;
       
@@ -272,43 +261,18 @@ const Index = () => {
       
       switch (formato) {
         case 'xlsx':
-            // ----------------------------------------------------
-            // LÓGICA PARA XLSX (SheetJS)
-            // Descomentar esta seção após rodar 'npm install xlsx'
-            // ----------------------------------------------------
-            /*
             const ws = XLSX.utils.json_to_sheet(dados);
             const wb = XLSX.utils.book_new();
             XLSX.utils.book_append_sheet(wb, ws, "Movimentações");
             XLSX.writeFile(wb, `${fileName}.xlsx`);
-            */
-            // Se você não instalou, ele fará o fallback para CSV
-            // ----------------------------------------------------
-            
-            // FALLBACK para CSV SE XLSX não estiver instalado
-            const headersCSV = Object.keys(dados[0]).join(",");
-            const rowsCSV = dados.map(e => Object.values(e).join(",")).join("\n");
-            const csvContent = `${headersCSV}\n${rowsCSV}`;
-            const encodedUri = encodeURI(`data:text/csv;charset=utf-8,${csvContent}`);
-            const link = document.createElement("a");
-            link.setAttribute("href", encodedUri);
-            link.setAttribute("download", `${fileName}.csv`); // Exporta como CSV
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
             
             toast({
-                title: "Exportação CSV Concluída",
-                description: `O histórico foi exportado como CSV. Instale a lib 'xlsx' para habilitar .xlsx.`,
+                title: "Exportação XLSX Concluída",
+                description: `O histórico de ${periodo} foi exportado como XLSX.`,
             });
             break;
             
         case 'pdf':
-            // ----------------------------------------------------
-            // LÓGICA PARA PDF (jsPDF + autotable)
-            // Descomentar esta seção após rodar 'npm install jspdf jspdf-autotable'
-            // ----------------------------------------------------
-            /*
             const doc = new jsPDF();
             const head = [Object.keys(dados[0])];
             const body = dados.map(row => Object.values(row));
@@ -326,12 +290,6 @@ const Index = () => {
             toast({
                 title: "Exportação PDF Concluída",
                 description: `O histórico de ${periodo} foi exportado como PDF.`,
-            });
-            */
-            // Lógica alternativa para PDF não implementada sem a lib
-            toast({
-                title: "Exportação não suportada",
-                description: `Instale as libs 'jspdf' e 'jspdf-autotable' para habilitar o PDF.`,
             });
             break;
             
@@ -419,7 +377,6 @@ const Index = () => {
           onExcluir={handleExcluir}
         />
 
-        {/* COMPONENTE DE HISTÓRICO COM FILTRO E EXPORTAÇÃO */}
         <HistoricoMovimentacoes 
           periodoFiltro={periodoFiltro} 
           onPeriodoChange={setPeriodoFiltro}
@@ -448,7 +405,6 @@ const Index = () => {
         }}
       />
       
-      {/* DIÁLOGO DE CONFIRMAÇÃO DE EXCLUSÃO */}
       <AlertDialog open={deleteChapaOpen} onOpenChange={setDeleteChapaOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
