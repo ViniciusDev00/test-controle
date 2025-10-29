@@ -262,10 +262,12 @@ const Index = () => {
   const handleExportarHistorico = (dados: any[], periodo: PeriodoFiltro) => {
       if (dados.length === 0) return;
       
+      // Cria o cabeçalho e as linhas no formato CSV
       const headers = Object.keys(dados[0]).join(",");
       const rows = dados.map(e => Object.values(e).join(",")).join("\n");
       const csvContent = `${headers}\n${rows}`;
 
+      // Cria um link temporário para download
       const encodedUri = encodeURI(`data:text/csv;charset=utf-8,${csvContent}`);
       const link = document.createElement("a");
       link.setAttribute("href", encodedUri);
