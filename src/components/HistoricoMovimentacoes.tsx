@@ -129,7 +129,8 @@ const HistoricoMovimentacoes = () => {
                       {mov.tipo === "entrada" ? "+" : "-"}
                       {mov.quantidade}
                     </TableCell>
-                    <TableCell>{mov.profiles.nome}</TableCell>
+                    {/* LINHA CORRIGIDA: Usa optional chaining (?.) e fallback (||) */}
+                    <TableCell>{mov.profiles?.nome || 'Usuário Desconhecido'}</TableCell>
                     <TableCell className="max-w-xs truncate">
                       {mov.observacao || "-"}
                     </TableCell>
