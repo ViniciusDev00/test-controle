@@ -1,3 +1,5 @@
+// ARQUIVO: src/pages/Index.tsx
+
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
@@ -20,7 +22,8 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-} from "@/components/ui/alert-dialog"; // Importação dos componentes do AlertDialog
+} from "@/components/ui/alert-dialog";
+import { startOfWeek, endOfWeek, startOfMonth, endOfMonth, subDays, formatISO } from "date-fns";
 
 interface Chapa {
   id: string;
@@ -40,6 +43,8 @@ interface Profile {
   nome: string;
 }
 
+type PeriodoFiltro = 'hoje' | 'semana' | 'mes' | 'todos';
+
 const Index = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
@@ -53,9 +58,12 @@ const Index = () => {
   const [movimentacaoTipo, setMovimentacaoTipo] = useState<"entrada" | "saida">("entrada");
   const [novaChapaOpen, setNovaChapaOpen] = useState(false);
   
-  // NOVOS ESTADOS PARA EXCLUSÃO
+  // ESTADOS DE EXCLUSÃO
   const [deleteChapaOpen, setDeleteChapaOpen] = useState(false);
   const [chapaToDelete, setChapaToDelete] = useState<Chapa | null>(null);
+
+  // ESTADO DE FILTRO ESTATÍSTICAS
+  const [periodoFiltro, setPeriodoFiltro] = useState<PeriodoFiltro>('mes'); 
 
   const [stats, setStats] = useState({
     totalChapas: 0,
@@ -121,6 +129,35 @@ const Index = () => {
     );
     setFilteredChapas(filtered);
   }, [searchTerm, chapas]);
+
+  // NOVO HELPER: Obtém os limites de data para a consulta SQL (passado via props)
+  const getPeriodDates = (periodo: PeriodoFiltro) => {
+    const now = new Date();
+    let startDate: Date;
+    let endDate: Date = now;
+
+    switch (periodo) {
+      case 'hoje':
+        // Filtra as últimas 24 horas
+        startDate = subDays(now, 1);
+        break;
+      case 'semana':
+        startDate = startOfWeek(now, { weekStartsOn: 0 }); // Domingo
+        endDate = endOfWeek(now, { weekStartsOn: 0 });
+        break;
+      case 'mes':
+        startDate = startOfMonth(now);
+        endDate = endOfMonth(now);
+        break;
+      case 'todos':
+      default:
+        return { startDate: null, endDate: null }; // Sem filtro
+    }
+    return { 
+      startDate: startDate, 
+      endDate: endDate 
+    };
+  };
 
   const loadProfile = async (userId: string) => {
     const { data } = await supabase
@@ -188,13 +225,13 @@ const Index = () => {
     setMovimentacaoOpen(true);
   };
   
-  // NOVA LÓGICA DE EXCLUSÃO (1/2)
+  // LÓGICA DE EXCLUSÃO (1/2)
   const handleExcluir = (chapa: Chapa) => {
     setChapaToDelete(chapa);
     setDeleteChapaOpen(true);
   };
 
-  // NOVA LÓGICA DE EXCLUSÃO (2/2)
+  // LÓGICA DE EXCLUSÃO (2/2)
   const confirmExclusao = async () => {
     if (!chapaToDelete) return;
 
@@ -220,6 +257,29 @@ const Index = () => {
     setDeleteChapaOpen(false);
     setChapaToDelete(null);
   };
+  
+  // FUNÇÃO DE EXPORTAÇÃO MOCK para CSV (O usuário pode abrir este arquivo no Excel/Sheets)
+  const handleExportarHistorico = (dados: any[], periodo: PeriodoFiltro) => {
+      if (dados.length === 0) return;
+      
+      const headers = Object.keys(dados[0]).join(",");
+      const rows = dados.map(e => Object.values(e).join(",")).join("\n");
+      const csvContent = `${headers}\n${rows}`;
+
+      const encodedUri = encodeURI(`data:text/csv;charset=utf-8,${csvContent}`);
+      const link = document.createElement("a");
+      link.setAttribute("href", encodedUri);
+      link.setAttribute("download", `historico_${periodo}_${formatISO(new Date(), { format: 'basic' })}.csv`);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      
+      toast({
+        title: "Exportação Concluída",
+        description: `O histórico de ${periodo} foi exportado como CSV.`,
+      });
+  };
+
 
   if (!user || !profile) {
     return (
@@ -279,10 +339,16 @@ const Index = () => {
           userRole={profile.role}
           onDescontar={handleDescontar}
           onAdicionar={handleAdicionar}
-          onExcluir={handleExcluir} // PASSANDO NOVA FUNÇÃO
+          onExcluir={handleExcluir}
         />
 
-        <HistoricoMovimentacoes />
+        {/* COMPONENTE DE HISTÓRICO COM FILTRO E EXPORTAÇÃO */}
+        <HistoricoMovimentacoes 
+          periodoFiltro={periodoFiltro} 
+          onPeriodoChange={setPeriodoFiltro}
+          onExportar={handleExportarHistorico}
+          getPeriodDates={getPeriodDates}
+        />
       </main>
 
       <MovimentacaoDialog
