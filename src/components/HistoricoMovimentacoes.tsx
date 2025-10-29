@@ -1,4 +1,4 @@
-// ARQUIVO: src/components/HistoricoMovimentacoes.tsx
+// ARQUIVO: src/components/HistoricoMovimentacoes.tsx (FINAL)
 
 import { useEffect, useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -7,9 +7,15 @@ import { Badge } from "@/components/ui/badge";
 import { supabase } from "@/integrations/supabase/client";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { TrendingUp, TrendingDown, Download } from "lucide-react";
+import { TrendingUp, TrendingDown, Download, FileText, FileSpreadsheet } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
+import { 
+  DropdownMenu, 
+  DropdownMenuTrigger, 
+  DropdownMenuContent, 
+  DropdownMenuItem 
+} from "@/components/ui/dropdown-menu";
 
 interface Movimentacao {
   id: string;
@@ -27,11 +33,12 @@ interface Movimentacao {
 }
 
 type PeriodoFiltro = 'hoje' | 'semana' | 'mes' | 'todos';
+type ExportFormat = 'csv' | 'xlsx' | 'pdf';
 
 interface HistoricoMovimentacoesProps {
   periodoFiltro: PeriodoFiltro;
   onPeriodoChange: (periodo: PeriodoFiltro) => void;
-  onExportar: (dados: any[], periodo: PeriodoFiltro) => void;
+  onExportar: (dados: any[], periodo: PeriodoFiltro, formato: ExportFormat) => void; // NOVO: ExportFormat
   getPeriodDates: (periodo: PeriodoFiltro) => { startDate: Date | null, endDate: Date | null };
 }
 
@@ -109,7 +116,7 @@ const HistoricoMovimentacoes = ({
   };
   
   // Função que prepara e chama a exportação (CSV)
-  const handleExportClick = () => {
+  const handleExportClick = (formato: ExportFormat) => {
       // Mapeia os dados para um formato simples de exportação (CSV)
       const dadosParaExportar = movimentacoes.map(mov => ({
           DataHora: format(new Date(mov.created_at), "dd/MM/yyyy HH:mm", { locale: ptBR }),
@@ -120,7 +127,7 @@ const HistoricoMovimentacoes = ({
           Usuario: mov.profiles?.nome || 'Desconhecido',
           Observacao: mov.observacao || '-',
       }));
-      onExportar(dadosParaExportar, periodoFiltro);
+      onExportar(dadosParaExportar, periodoFiltro, formato);
   };
 
 
@@ -151,17 +158,34 @@ const HistoricoMovimentacoes = ({
                     <ToggleGroupItem value="todos" aria-label="Filtro Todos">Todos</ToggleGroupItem>
                 </ToggleGroup>
                 
-                {/* Botão de Exportação */}
-                <Button 
-                    variant="outline" 
-                    size="sm" 
-                    onClick={handleExportClick}
-                    disabled={movimentacoes.length === 0 || loading}
-                    title="Exportar para CSV"
-                >
-                    <Download className="h-4 w-4" />
-                    Exportar
-                </Button>
+                {/* Botão de Exportação com Dropdown */}
+                <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                        <Button 
+                            variant="outline" 
+                            size="sm" 
+                            disabled={movimentacoes.length === 0 || loading}
+                            title="Exportar"
+                        >
+                            <Download className="h-4 w-4 mr-2" />
+                            Exportar
+                        </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                        <DropdownMenuItem onClick={() => handleExportClick('xlsx')} disabled={loading}>
+                            <FileSpreadsheet className="h-4 w-4 mr-2" />
+                            Exportar para XLSX (Excel)
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => handleExportClick('pdf')} disabled={loading}>
+                            <FileText className="h-4 w-4 mr-2" />
+                            Exportar para PDF
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => handleExportClick('csv')} disabled={loading}>
+                             <FileSpreadsheet className="h-4 w-4 mr-2" />
+                            Exportar para CSV
+                        </DropdownMenuItem>
+                    </DropdownMenuContent>
+                </DropdownMenu>
             </div>
         </div>
       </CardHeader>
