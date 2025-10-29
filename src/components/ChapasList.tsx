@@ -1,4 +1,4 @@
-// ARQUIVO: src/components/ChapasList.tsx (FINAL VERSION)
+// ARQUIVO: src/components/ChapasList.tsx
 
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Card } from "@/components/ui/card";
