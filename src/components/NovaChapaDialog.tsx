@@ -23,14 +23,20 @@ const NovaChapaDialog = ({ open, onOpenChange, onSuccess }: NovaChapaDialogProps
     comprimento: "",
     localizacao: "",
     quantidade: "",
-    peso: "",
+    peso_unitario: "", // MODIFICADO: Renomeado no estado para capturar o valor
   });
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
 
+    const unitWeight = parseFloat(formData.peso_unitario);
+    const quantity = parseInt(formData.quantidade);
+
     try {
+      // CÁLCULO: Inicializa o Peso Total em Estoque (Unitário * Quantidade)
+      const totalWeight = unitWeight * quantity; 
+
       const { error } = await supabase.from("chapas").insert({
         codigo: formData.codigo,
         descricao: formData.descricao,
@@ -38,8 +44,8 @@ const NovaChapaDialog = ({ open, onOpenChange, onSuccess }: NovaChapaDialogProps
         largura: parseFloat(formData.largura),
         comprimento: parseFloat(formData.comprimento),
         localizacao: formData.localizacao || null,
-        quantidade: parseInt(formData.quantidade),
-        peso: parseFloat(formData.peso),
+        quantidade: quantity,
+        peso: totalWeight, // MODIFICADO: Insere o Peso Total Inicial na coluna 'peso'
       });
 
       if (error) throw error;
@@ -57,7 +63,7 @@ const NovaChapaDialog = ({ open, onOpenChange, onSuccess }: NovaChapaDialogProps
         comprimento: "",
         localizacao: "",
         quantidade: "",
-        peso: "",
+        peso_unitario: "", // MODIFICADO: Limpa o campo renomeado
       });
       onOpenChange(false);
       onSuccess();
@@ -163,14 +169,14 @@ const NovaChapaDialog = ({ open, onOpenChange, onSuccess }: NovaChapaDialogProps
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="peso">Peso (kg) *</Label>
+              <Label htmlFor="peso_unitario">Peso Unitário (kg) *</Label> {/* MODIFICADO */}
               <Input
-                id="peso"
+                id="peso_unitario"
                 type="number"
                 step="0.01"
                 placeholder="Ex: 25.50"
-                value={formData.peso}
-                onChange={(e) => setFormData({ ...formData, peso: e.target.value })}
+                value={formData.peso_unitario}
+                onChange={(e) => setFormData({ ...formData, peso_unitario: e.target.value })}
                 required
               />
             </div>
