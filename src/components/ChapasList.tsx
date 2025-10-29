@@ -2,7 +2,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Minus, Plus, Edit } from "lucide-react";
+import { Minus, Plus, Edit, Trash2 } from "lucide-react"; // Importado Trash2
 
 interface Chapa {
   id: string;
@@ -12,7 +12,7 @@ interface Chapa {
   largura: number;
   comprimento: number;
   quantidade: number;
-  peso: number;
+  peso: number; // AGORA É O PESO TOTAL EM ESTOQUE
   unidade: string;
   localizacao?: string;
 }
@@ -23,9 +23,10 @@ interface ChapasListProps {
   onDescontar: (chapa: Chapa) => void;
   onAdicionar: (chapa: Chapa) => void;
   onEditar?: (chapa: Chapa) => void;
+  onExcluir: (chapa: Chapa) => void; // NOVO: Função para excluir
 }
 
-const ChapasList = ({ chapas, userRole, onDescontar, onAdicionar, onEditar }: ChapasListProps) => {
+const ChapasList = ({ chapas, userRole, onDescontar, onAdicionar, onEditar, onExcluir }: ChapasListProps) => { // NOVO: onExcluir nos props
   return (
     <Card className="shadow-[var(--shadow-card)]">
       <div className="overflow-x-auto">
@@ -36,7 +37,7 @@ const ChapasList = ({ chapas, userRole, onDescontar, onAdicionar, onEditar }: Ch
               <TableHead>Descrição</TableHead>
               <TableHead className="text-center">Dimensões (mm)</TableHead>
               <TableHead className="text-center">Quantidade</TableHead>
-              <TableHead className="text-center">Peso (kg)</TableHead>
+              <TableHead className="text-center">Peso Total (kg)</TableHead> {/* MODIFICADO: Indica Peso Total */}
               <TableHead>Localização</TableHead>
               <TableHead className="text-right">Ações</TableHead>
             </TableRow>
@@ -44,7 +45,7 @@ const ChapasList = ({ chapas, userRole, onDescontar, onAdicionar, onEditar }: Ch
           <TableBody>
             {chapas.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={6} className="text-center text-muted-foreground py-8">
+                <TableCell colSpan={7} className="text-center text-muted-foreground py-8">
                   Nenhuma chapa cadastrada ainda
                 </TableCell>
               </TableRow>
@@ -64,36 +65,44 @@ const ChapasList = ({ chapas, userRole, onDescontar, onAdicionar, onEditar }: Ch
                     </Badge>
                   </TableCell>
                   <TableCell className="text-center">
-                    <span className="font-medium">{chapa.peso} kg</span>
+                    <span className="font-medium">{chapa.peso} kg</span> {/* AGORA É O PESO TOTAL */}
                   </TableCell>
                   <TableCell>{chapa.localizacao || "-"}</TableCell>
                   <TableCell className="text-right">
                     <div className="flex gap-2 justify-end">
+                      
+                      {/* Controlador pode ADICIONAR, DESCONTAR, EDITAR e EXCLUIR */}
                       {userRole === "controlador" && (
                         <>
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => onAdicionar(chapa)}
-                          >
+                          <Button size="sm" variant="outline" onClick={() => onAdicionar(chapa)} title="Adicionar">
                             <Plus className="h-4 w-4" />
                           </Button>
+                          <Button size="sm" variant="outline" onClick={() => onDescontar(chapa)} title="Descontar"> 
+                            <Minus className="h-4 w-4" /> {/* AGORA TEM ACESSO A DESCONTAR */}
+                          </Button>
                           {onEditar && (
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() => onEditar(chapa)}
-                            >
+                            <Button size="sm" variant="outline" onClick={() => onEditar(chapa)} title="Editar">
                               <Edit className="h-4 w-4" />
                             </Button>
                           )}
+                          <Button 
+                            size="sm" 
+                            variant="destructive" // Usando variante destrutiva
+                            onClick={() => onExcluir(chapa)} 
+                            title="Excluir"
+                          >
+                            <Trash2 className="h-4 w-4" /> {/* NOVO: Botão de Excluir */}
+                          </Button>
                         </>
                       )}
+                      
+                      {/* Operador pode apenas DESCONTAR */}
                       {userRole === "operador" && chapa.quantidade > 0 && (
                         <Button
                           size="sm"
                           variant="outline"
                           onClick={() => onDescontar(chapa)}
+                          title="Descontar"
                         >
                           <Minus className="h-4 w-4" />
                         </Button>
