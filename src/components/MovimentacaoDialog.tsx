@@ -12,6 +12,7 @@ interface Chapa {
   codigo: string;
   descricao: string;
   quantidade: number;
+  peso: number; // Peso Total em Estoque
 }
 
 interface MovimentacaoDialogProps {
@@ -57,6 +58,23 @@ const MovimentacaoDialog = ({ open, onOpenChange, chapa, tipo, onSuccess }: Movi
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("Usuário não autenticado");
 
+      // CÁLCULO DO PESO (Implementação da lógica solicitada)
+      // 1. Calcula o Peso Unitário a partir do estoque atual (Peso Total / Quantidade Atual).
+      const pesoUnitario = chapa.quantidade > 0 ? chapa.peso / chapa.quantidade : 0;
+      // 2. Calcula a alteração de peso total.
+      const pesoMovimentado = pesoUnitario * qtd;
+
+      // 3. Calcula nova Quantidade e Novo Peso Total.
+      const novaQuantidade = tipo === "entrada" 
+        ? chapa.quantidade + qtd 
+        : chapa.quantidade - qtd;
+
+      const novoPesoTotal = tipo === "entrada" 
+        ? chapa.peso + pesoMovimentado 
+        : chapa.peso - pesoMovimentado;
+      // Garante que o peso total não seja negativo
+      const pesoFinal = Math.max(0, novoPesoTotal); 
+
       // Registrar movimentação
       const { error: movError } = await supabase.from("movimentacoes").insert({
         chapa_id: chapa.id,
@@ -68,21 +86,20 @@ const MovimentacaoDialog = ({ open, onOpenChange, chapa, tipo, onSuccess }: Movi
 
       if (movError) throw movError;
 
-      // Atualizar quantidade da chapa
-      const novaQuantidade = tipo === "entrada" 
-        ? chapa.quantidade + qtd 
-        : chapa.quantidade - qtd;
-
+      // Atualizar quantidade e peso total da chapa (campo 'peso' no DB)
       const { error: updateError } = await supabase
         .from("chapas")
-        .update({ quantidade: novaQuantidade })
+        .update({ 
+          quantidade: novaQuantidade, 
+          peso: pesoFinal // Atualiza o Peso Total
+        })
         .eq("id", chapa.id);
 
       if (updateError) throw updateError;
 
       toast({
         title: tipo === "entrada" ? "Entrada registrada!" : "Saída registrada!",
-        description: `${qtd} unidades ${tipo === "entrada" ? "adicionadas" : "retiradas"} com sucesso.`,
+        description: `${qtd} unidades e ${pesoMovimentado.toFixed(2)}kg ${tipo === "entrada" ? "adicionados" : "retirados"} com sucesso.`,
       });
 
       setQuantidade("");
