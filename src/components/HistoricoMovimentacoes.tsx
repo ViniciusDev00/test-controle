@@ -1,3 +1,5 @@
+// ARQUIVO: src/components/HistoricoMovimentacoes.tsx (FINAL VERSION)
+
 import { useEffect, useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -5,7 +7,9 @@ import { Badge } from "@/components/ui/badge";
 import { supabase } from "@/integrations/supabase/client";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { TrendingUp, TrendingDown } from "lucide-react";
+import { TrendingUp, TrendingDown, Download } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 
 interface Movimentacao {
   id: string;
@@ -19,16 +23,33 @@ interface Movimentacao {
   };
   profiles: {
     nome: string;
-  };
+  } | null;
 }
 
-const HistoricoMovimentacoes = () => {
+type PeriodoFiltro = 'hoje' | 'semana' | 'mes' | 'todos';
+
+interface HistoricoMovimentacoesProps {
+  periodoFiltro: PeriodoFiltro;
+  onPeriodoChange: (periodo: PeriodoFiltro) => void;
+  onExportar: (dados: any[], periodo: PeriodoFiltro) => void;
+  getPeriodDates: (periodo: PeriodoFiltro) => { startDate: Date | null, endDate: Date | null };
+}
+
+const HistoricoMovimentacoes = ({ 
+  periodoFiltro, 
+  onPeriodoChange, 
+  onExportar,
+  getPeriodDates
+}: HistoricoMovimentacoesProps) => {
+
   const [movimentacoes, setMovimentacoes] = useState<Movimentacao[]>([]);
   const [loading, setLoading] = useState(true);
 
+  // useEffect reage à mudança de período para buscar novos dados
   useEffect(() => {
     loadMovimentacoes();
 
+    // Apenas a inscrição de tempo real deve ser mantida constante
     const channel = supabase
       .channel("movimentacoes-changes")
       .on(
@@ -47,30 +68,102 @@ const HistoricoMovimentacoes = () => {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, []);
+  }, [periodoFiltro]); // Dependência garante a nova busca
 
   const loadMovimentacoes = async () => {
-    const { data, error } = await supabase
+    setLoading(true);
+    let query = supabase
       .from("movimentacoes")
       .select(`
         *,
         chapas (codigo, descricao),
         profiles (nome)
       `)
-      .order("created_at", { ascending: false })
-      .limit(20);
+      .order("created_at", { ascending: false });
+    
+    // Lógica de Filtro por Período
+    const { startDate, endDate } = getPeriodDates(periodoFiltro);
+
+    if (startDate) {
+      query = query.gte("created_at", startDate.toISOString());
+    }
+    if (endDate) {
+      query = query.lte("created_at", endDate.toISOString());
+    }
+    
+    // Limita a 500 para evitar sobrecarga (ou 20 para visualização rápida)
+    if (periodoFiltro !== 'todos') { 
+        query = query.limit(20); 
+    } else {
+        query = query.limit(500);
+    }
+    
+
+    const { data, error } = await query;
 
     if (!error && data) {
-      setMovimentacoes(data as unknown as Movimentacao[]);
+      // Ajuste de tipo para incluir o null/desconhecido para o frontend
+      setMovimentacoes(data as unknown as Movimentacao[]); 
     }
     setLoading(false);
   };
+  
+  // Função que prepara e chama a exportação (CSV)
+  const handleExportClick = () => {
+      // Mapeia os dados para um formato simples de exportação (CSV)
+      const dadosParaExportar = movimentacoes.map(mov => ({
+          DataHora: format(new Date(mov.created_at), "dd/MM/yyyy HH:mm", { locale: ptBR }),
+          Tipo: mov.tipo === "entrada" ? "Entrada" : "Saída",
+          CodigoChapa: mov.chapas.codigo,
+          DescricaoChapa: mov.chapas.descricao,
+          Quantidade: mov.tipo === "entrada" ? `+${mov.quantidade}` : `-${mov.quantidade}`,
+          Usuario: mov.profiles?.nome || 'Desconhecido',
+          Observacao: mov.observacao || '-',
+      }));
+      onExportar(dadosParaExportar, periodoFiltro);
+  };
+
 
   return (
     <Card className="shadow-[var(--shadow-card)]">
       <CardHeader>
-        <CardTitle>Histórico de Movimentações</CardTitle>
-        <CardDescription>Últimas 20 movimentações registradas</CardDescription>
+        <div className="flex justify-between items-start">
+            <div>
+                <CardTitle>Histórico de Movimentações</CardTitle>
+                <CardDescription>
+                  {periodoFiltro === 'todos' ? 
+                   `Todas as ${movimentacoes.length} movimentações encontradas` : 
+                   `Últimas movimentações registradas no período: ${periodoFiltro}`}
+                </CardDescription>
+            </div>
+            
+            <div className="flex gap-2 items-center">
+                {/* Controles de Filtro de Período */}
+                <ToggleGroup 
+                  type="single" 
+                  value={periodoFiltro} 
+                  onValueChange={(value: PeriodoFiltro) => value && onPeriodoChange(value)}
+                  className="hidden sm:flex"
+                >
+                    <ToggleGroupItem value="hoje" aria-label="Filtro Hoje">Hoje</ToggleGroupItem>
+                    <ToggleGroupItem value="semana" aria-label="Filtro Semana">Semana</ToggleGroupItem>
+                    <ToggleGroupItem value="mes" aria-label="Filtro Mês">Mês</ToggleGroupItem>
+                    <ToggleGroupItem value="todos" aria-label="Filtro Todos">Todos</ToggleGroupItem>
+                </ToggleGroup>
+                
+                {/* Botão de Exportação */}
+                <Button 
+                    variant="outline" 
+                    size="sm" 
+                    onClick={handleExportClick}
+                    disabled={movimentacoes.length === 0 || loading}
+                    title="Exportar para CSV"
+                >
+                    <Download className="h-4 w-4" />
+                    Exportar
+                </Button>
+            </div>
+        </div>
       </CardHeader>
       <CardContent>
         <div className="overflow-x-auto">
@@ -129,7 +222,6 @@ const HistoricoMovimentacoes = () => {
                       {mov.tipo === "entrada" ? "+" : "-"}
                       {mov.quantidade}
                     </TableCell>
-                    {/* LINHA CORRIGIDA: Usa optional chaining (?.) e fallback (||) */}
                     <TableCell>{mov.profiles?.nome || 'Usuário Desconhecido'}</TableCell>
                     <TableCell className="max-w-xs truncate">
                       {mov.observacao || "-"}
