@@ -1,4 +1,4 @@
-// ARQUIVO: src/components/HistoricoMovimentacoes.tsx (FINAL VERSION)
+// ARQUIVO: src/components/HistoricoMovimentacoes.tsx
 
 import { useEffect, useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
