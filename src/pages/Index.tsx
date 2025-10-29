@@ -11,6 +11,16 @@ import MovimentacaoDialog from "@/components/MovimentacaoDialog";
 import NovaChapaDialog from "@/components/NovaChapaDialog";
 import HistoricoMovimentacoes from "@/components/HistoricoMovimentacoes";
 import { useToast } from "@/hooks/use-toast";
+import { 
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"; // Importação dos componentes do AlertDialog
 
 interface Chapa {
   id: string;
@@ -42,6 +52,11 @@ const Index = () => {
   const [movimentacaoOpen, setMovimentacaoOpen] = useState(false);
   const [movimentacaoTipo, setMovimentacaoTipo] = useState<"entrada" | "saida">("entrada");
   const [novaChapaOpen, setNovaChapaOpen] = useState(false);
+  
+  // NOVOS ESTADOS PARA EXCLUSÃO
+  const [deleteChapaOpen, setDeleteChapaOpen] = useState(false);
+  const [chapaToDelete, setChapaToDelete] = useState<Chapa | null>(null);
+
   const [stats, setStats] = useState({
     totalChapas: 0,
     totalQuantidade: 0,
@@ -126,7 +141,7 @@ const Index = () => {
       .order("codigo", { ascending: true });
 
     if (data) {
-      setChapas(data);
+      setChapas(data as unknown as Chapa[]);
     }
   };
 
@@ -171,6 +186,39 @@ const Index = () => {
     setSelectedChapa(chapa);
     setMovimentacaoTipo("entrada");
     setMovimentacaoOpen(true);
+  };
+  
+  // NOVA LÓGICA DE EXCLUSÃO (1/2)
+  const handleExcluir = (chapa: Chapa) => {
+    setChapaToDelete(chapa);
+    setDeleteChapaOpen(true);
+  };
+
+  // NOVA LÓGICA DE EXCLUSÃO (2/2)
+  const confirmExclusao = async () => {
+    if (!chapaToDelete) return;
+
+    const { error } = await supabase
+      .from("chapas")
+      .delete()
+      .eq("id", chapaToDelete.id);
+
+    if (error) {
+      toast({
+        variant: "destructive",
+        title: "Erro ao excluir chapa",
+        description: error.message,
+      });
+    } else {
+      toast({
+        title: "Chapa excluída!",
+        description: `A chapa ${chapaToDelete.codigo} foi removida do sistema.`,
+      });
+      loadChapas();
+      loadStats();
+    }
+    setDeleteChapaOpen(false);
+    setChapaToDelete(null);
   };
 
   if (!user || !profile) {
@@ -231,6 +279,7 @@ const Index = () => {
           userRole={profile.role}
           onDescontar={handleDescontar}
           onAdicionar={handleAdicionar}
+          onExcluir={handleExcluir} // PASSANDO NOVA FUNÇÃO
         />
 
         <HistoricoMovimentacoes />
@@ -255,6 +304,24 @@ const Index = () => {
           loadStats();
         }}
       />
+      
+      {/* DIÁLOGO DE CONFIRMAÇÃO DE EXCLUSÃO */}
+      <AlertDialog open={deleteChapaOpen} onOpenChange={setDeleteChapaOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Tem certeza que deseja excluir?</AlertDialogTitle>
+            <AlertDialogDescription>
+              A exclusão da chapa "{chapaToDelete?.codigo} - {chapaToDelete?.descricao}" é permanente e irá remover todo o histórico de movimentações associado.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmExclusao}>
+              Sim, Excluir
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };
