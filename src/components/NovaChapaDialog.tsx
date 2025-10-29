@@ -1,3 +1,5 @@
+// ARQUIVO: src/components/NovaChapaDialog.tsx
+
 import { useState } from "react";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -23,7 +25,7 @@ const NovaChapaDialog = ({ open, onOpenChange, onSuccess }: NovaChapaDialogProps
     comprimento: "",
     localizacao: "",
     quantidade: "",
-    peso_unitario: "", // MODIFICADO: Renomeado no estado para capturar o valor
+    peso_unitario: "", // MODIFICADO: Campo para capturar o peso por unidade
   });
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -63,7 +65,7 @@ const NovaChapaDialog = ({ open, onOpenChange, onSuccess }: NovaChapaDialogProps
         comprimento: "",
         localizacao: "",
         quantidade: "",
-        peso_unitario: "", // MODIFICADO: Limpa o campo renomeado
+        peso_unitario: "", 
       });
       onOpenChange(false);
       onSuccess();
@@ -169,7 +171,7 @@ const NovaChapaDialog = ({ open, onOpenChange, onSuccess }: NovaChapaDialogProps
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="peso_unitario">Peso Unitário (kg) *</Label> {/* MODIFICADO */}
+              <Label htmlFor="peso_unitario">Peso Unitário (kg) *</Label>
               <Input
                 id="peso_unitario"
                 type="number"
