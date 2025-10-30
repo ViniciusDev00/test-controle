@@ -1,6 +1,6 @@
-// ARQUIVO: src/components/HistoricoMovimentacoes.tsx
+// ARQUIVO: src/components/HistoricoMovimentacoes.tsx (CORRIGIDO)
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
@@ -24,9 +24,10 @@ interface ChapaData {
     peso: number;
 }
 
+// CORRIGIDA: Tipo local de Movimentacao, incluindo 'id' e 'observacao'
 interface Movimentacao {
-  id: string;
-  tipo: string;
+  id: string; // CORRIGIDO: Propriedade 'id' faltante
+  tipo: 'entrada' | 'saida'; // CORRIGIDO: Tipo específico (não string) para compatibilidade com Index.tsx
   quantidade: number;
   observacao: string | null;
   created_at: string;
@@ -36,13 +37,29 @@ interface Movimentacao {
   } | null;
 }
 
+// REMOVIDO: MovimentacaoExport e MovimentacaoLocal (redundantes)
+
+interface ExportData {
+    Código?: string;
+    Descrição?: string;
+    'Dimensões (mm)'?: string;
+    Quantidade?: string;
+    'Peso Total (kg)'?: string;
+    Localização?: string;
+    'Data / Hora'?: string;
+    Tipo?: string;
+    'Peso (kg)'?: string;
+    Usuário?: string;
+}
+
 type PeriodoFiltro = 'hoje' | 'semana' | 'mes' | 'todos';
 type ExportFormat = 'csv' | 'xlsx' | 'pdf';
 
 interface HistoricoMovimentacoesProps {
   periodoFiltro: PeriodoFiltro;
   onPeriodoChange: (periodo: PeriodoFiltro) => void;
-  onExportar: (dados: any[], periodo: PeriodoFiltro, formato: ExportFormat) => void;
+  // Agora usa Movimentacao[] (o tipo MovimentacaoLocal é compatível com MovimentacaoExport)
+  onExportar: (dados: Movimentacao[], periodo: PeriodoFiltro, formato: ExportFormat) => void; 
   getPeriodDates: (periodo: PeriodoFiltro) => { startDate: Date | null, endDate: Date | null };
 }
 
@@ -56,30 +73,8 @@ const HistoricoMovimentacoes = ({
   const [movimentacoes, setMovimentacoes] = useState<Movimentacao[]>([]);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    loadMovimentacoes();
-
-    const channel = supabase
-      .channel("movimentacoes-changes")
-      .on(
-        "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table: "movimentacoes",
-        },
-        () => {
-          loadMovimentacoes();
-        }
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [periodoFiltro]);
-
-  const loadMovimentacoes = async () => {
+  // Usa useCallback para estabilizar a função e corrigir o aviso de React Hook (ESLint)
+  const loadMovimentacoes = useCallback(async () => {
     setLoading(true);
     let query = supabase
       .from("movimentacoes")
@@ -112,28 +107,36 @@ const HistoricoMovimentacoes = ({
       setMovimentacoes(data as unknown as Movimentacao[]); 
     }
     setLoading(false);
-  };
-  
+  }, [periodoFiltro, getPeriodDates]); // Dependências da função
+
+  // useEffect que depende da função estável (loadMovimentacoes)
+  useEffect(() => {
+    loadMovimentacoes();
+
+    const channel = supabase
+      .channel("movimentacoes-changes")
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "movimentacoes",
+        },
+        () => {
+          loadMovimentacoes();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [loadMovimentacoes]);
+
+
   const handleExportClick = (formato: ExportFormat) => {
-      // O mapeamento abaixo garante que as chaves do objeto (que viram cabeçalhos)
-      // tenham nomes limpos e formatados para a exportação (XLSX/PDF)
-      const dadosParaExportar = movimentacoes.map(mov => {
-          const chapa = mov.chapas_data;
-          const pesoUnitario = chapa.quantidade > 0 ? Math.abs(chapa.peso) / chapa.quantidade : 0;
-          const pesoMovimentado = pesoUnitario * mov.quantidade;
-          const sinal = mov.tipo === "entrada" ? '+' : '-';
-          
-          return {
-              "Data / Hora": format(new Date(mov.created_at), "dd/MM/yyyy HH:mm", { locale: ptBR }),
-              Tipo: mov.tipo === "entrada" ? "ENTRADA" : "SAÍDA", // Padronizado e Capitalizado
-              Codigo: chapa.codigo,
-              Descrição: chapa.descricao,
-              Quantidade: `${sinal}${mov.quantidade}`,
-              "Peso (kg)": `${sinal}${pesoMovimentado.toFixed(2)}`, // 2 casas decimais
-              Usuário: mov.profiles?.nome || 'Desconhecido',
-          };
-      });
-      onExportar(dadosParaExportar, periodoFiltro, formato);
+      // Aqui passamos o array completo (movimentacoes) para a função onExportar
+      onExportar(movimentacoes, periodoFiltro, formato);
   };
 
 

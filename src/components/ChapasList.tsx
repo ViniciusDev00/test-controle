@@ -1,4 +1,4 @@
-// ARQUIVO: src/components/ChapasList.tsx (SUBSTITUIR)
+// ARQUIVO: src/components/ChapasList.tsx
 
 import * as React from "react";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -35,27 +35,14 @@ interface ChapasListProps {
   onAdicionar: (chapa: Chapa) => void;
   onEditar?: (chapa: Chapa) => void;
   onExcluir: (chapa: Chapa) => void;
-  onExportarChapas: (formato: ExportFormat) => void; // MODIFICADO: Apenas formato
-  onOpenFullScreen: () => void; // NOVO
-  isFullScreen?: boolean; // NOVO: Para saber se está no modal
+  onExportarChapas: (formato: ExportFormat) => void;
+  onOpenFullScreen: () => void;
+  isFullScreen?: boolean;
 }
 
-const ChapasList = ({ 
-    chapas, 
-    userRole, 
-    onDescontar, 
-    onAdicionar, 
-    onEditar, 
-    onExcluir, 
-    onExportarChapas, 
-    onOpenFullScreen,
-    isFullScreen = false
-}: ChapasListProps) => {
+const ChapasList = ({ chapas, userRole, onDescontar, onAdicionar, onEditar, onExcluir, onExportarChapas, onOpenFullScreen, isFullScreen = false }: ChapasListProps) => {
 
-  // Adaptação da função de exportação para a nova lógica: 
-  // O onExportarChapas em Index.tsx agora lida com a escolha do filtro
   const handleExport = (formato: ExportFormat) => {
-    // Esta função dispara o modal de escolha de filtro em Index.tsx
     onExportarChapas(formato);
   };
 
@@ -186,7 +173,6 @@ const ChapasList = ({
     </div>
   );
 
-  // Se estiver em tela cheia, retorna apenas o conteúdo da tabela, senão retorna o Card completo.
   if (isFullScreen) {
     return tableContent;
   }

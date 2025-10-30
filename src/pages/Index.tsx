@@ -1,4 +1,4 @@
-// ARQUIVO: src/pages/Index.tsx (SUBSTITUIR)
+// ARQUIVO: src/pages/Index.tsx (SUBSTITUIR TODO O CONTEÚDO)
 
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
@@ -12,8 +12,9 @@ import ChapasList from "@/components/ChapasList";
 import MovimentacaoDialog from "@/components/MovimentacaoDialog";
 import NovaChapaDialog from "@/components/NovaChapaDialog";
 import HistoricoMovimentacoes from "@/components/HistoricoMovimentacoes";
-import ChapasFullScreenDialog from "@/components/ChapasFullScreenDialog"; // NOVO: Importando a tela cheia
+import ChapasFullScreenDialog from "@/components/ChapasFullScreenDialog"; 
 import { useToast } from "@/hooks/use-toast";
+// CORREÇÃO: Importação COMPLETA dos componentes AlertDialog
 import { 
   AlertDialog,
   AlertDialogAction,
@@ -24,7 +25,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { startOfWeek, endOfWeek, startOfMonth, endOfMonth, subDays, formatISO, format } from "date-fns";
+import { startOfWeek, endOfWeek, startOfMonth, endOfMonth, subDays, formatISO, format, startOfDay } from "date-fns";
 import * as XLSX from 'xlsx'; 
 import { jsPDF } from 'jspdf';
 import 'jspdf-autotable';
@@ -32,7 +33,12 @@ import { ptBR } from "date-fns/locale";
 
 type ExportFormat = 'csv' | 'xlsx' | 'pdf';
 type PeriodoFiltro = 'hoje' | 'semana' | 'mes' | 'todos';
-type ExportScope = 'filtered' | 'all'; // NOVO: Para a escolha de exportação
+type ExportScope = 'filtered' | 'all'; 
+
+// Interface que adiciona 'autoTable' ao jsPDF para satisfazer o TypeScript
+interface JsPDFWithAutoTable extends jsPDF {
+    autoTable: (options: unknown) => void;
+}
 
 interface Chapa {
   id: string;
@@ -52,12 +58,34 @@ interface Profile {
   nome: string;
 }
 
-// ESTADOS PARA CONTROLE DE EXPORTAÇÃO
+// Interface para a estrutura do dado que sai do HistoricoMovimentacoes.tsx
+interface MovimentacaoExport {
+    created_at: string;
+    tipo: 'entrada' | 'saida';
+    quantidade: number;
+    profiles: { nome: string } | null;
+    chapas_data: { codigo: string; descricao: string; quantidade: number; peso: number; };
+}
+
+// Interface para dados de exportação final
+interface ExportData {
+    Código?: string;
+    Descrição?: string;
+    'Dimensões (mm)'?: string;
+    Quantidade?: string;
+    'Peso Total (kg)'?: string;
+    Localização?: string;
+    'Data / Hora'?: string;
+    Tipo?: string;
+    'Peso (kg)'?: string;
+    Usuário?: string;
+}
+
 interface ExportState {
   open: boolean;
   format: ExportFormat | null;
   type: 'chapas' | 'historico' | null;
-  historicoData?: any[];
+  historicoData?: MovimentacaoExport[];
   historicoPeriodo?: PeriodoFiltro;
 }
 
@@ -69,6 +97,8 @@ const Index = () => {
   const [chapas, setChapas] = useState<Chapa[]>([]);
   const [filteredChapas, setFilteredChapas] = useState<Chapa[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
+  const [fullScreenSearchTerm, setFullScreenSearchTerm] = useState(""); 
+  
   const [selectedChapa, setSelectedChapa] = useState<Chapa | null>(null);
   const [movimentacaoOpen, setMovimentacaoOpen] = useState(false);
   const [movimentacaoTipo, setMovimentacaoTipo] = useState<"entrada" | "saida">("entrada");
@@ -79,10 +109,9 @@ const Index = () => {
 
   const [periodoFiltro, setPeriodoFiltro] = useState<PeriodoFiltro>('mes'); 
   
-  // NOVOS ESTADOS PARA FUNCIONALIDADES DE TELA
-  const [fullScreenChapasOpen, setFullScreenChapasOpen] = useState(false); // Tela Cheia
-  const [exportState, setExportState] = useState<ExportState>({ open: false, format: null, type: null }); // Escolha de Exportação
-  const [allChapas, setAllChapas] = useState<Chapa[]>([]); // Estoque Completo para Exportar Todos
+  const [fullScreenChapasOpen, setFullScreenChapasOpen] = useState(false); 
+  const [exportState, setExportState] = useState<ExportState>({ open: false, format: null, type: null }); 
+  const [allChapas, setAllChapas] = useState<Chapa[]>([]); 
 
   const [stats, setStats] = useState({
     totalChapas: 0,
@@ -91,7 +120,6 @@ const Index = () => {
     saidasMes: 0,
   });
 
-  // ... useEffects (autenticação, stats, filtros) ...
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (session) {
@@ -118,7 +146,7 @@ const Index = () => {
     if (user) {
       loadChapas();
       loadStats();
-      loadAllChapas(); // NOVO: Carrega todos para exportação
+      loadAllChapas();
 
       const channel = supabase
         .channel("chapas-changes")
@@ -132,7 +160,7 @@ const Index = () => {
           () => {
             loadChapas();
             loadStats();
-            loadAllChapas(); // Recarrega todos
+            loadAllChapas();
           }
         )
         .subscribe();
@@ -152,6 +180,12 @@ const Index = () => {
     setFilteredChapas(filtered);
   }, [searchTerm, chapas]);
 
+  const filteredFullScreenChapas = chapas.filter(
+    (chapa) =>
+      chapa.codigo.toLowerCase().includes(fullScreenSearchTerm.toLowerCase()) ||
+      chapa.descricao.toLowerCase().includes(fullScreenSearchTerm.toLowerCase())
+  );
+
   const getPeriodDates = (periodo: PeriodoFiltro) => {
     const now = new Date();
     let startDate: Date;
@@ -159,7 +193,7 @@ const Index = () => {
 
     switch (periodo) {
       case 'hoje':
-        startDate = subDays(now, 1);
+        startDate = startOfDay(now);
         break;
       case 'semana':
         startDate = startOfWeek(now, { weekStartsOn: 0 });
@@ -179,7 +213,6 @@ const Index = () => {
     };
   };
 
-  // NOVO: Carrega todas as chapas (usado para Exportar Tudo)
   const loadAllChapas = async () => {
     const { data } = await supabase
       .from("chapas")
@@ -288,13 +321,14 @@ const Index = () => {
     setChapaToDelete(null);
   };
   
-  const baseExportLogic = (dados: any[], fileNameBase: string, formato: ExportFormat, title: string) => {
+  // FUNÇÃO MESTRA DE EXPORTAÇÃO
+  const baseExportLogic = (dados: ExportData[], fileNameBase: string, formato: ExportFormat, title: string) => {
     if (dados.length === 0) return;
 
     const fileName = `${fileNameBase}_${formatISO(new Date(), { format: 'basic' })}`;
     
     switch (formato) {
-      case 'xlsx':
+      case 'xlsx': {
           const ws = XLSX.utils.json_to_sheet(dados);
           const wb = XLSX.utils.book_new();
           XLSX.utils.book_append_sheet(wb, ws, title.split('-')[0].trim());
@@ -305,10 +339,11 @@ const Index = () => {
               description: `O relatório '${title}' foi exportado com sucesso.`,
           });
           break;
+      }
           
-      case 'pdf':
-          const doc = new jsPDF();
-          const head = [Object.keys(dados[0])];
+      case 'pdf': {
+          const doc = new jsPDF() as JsPDFWithAutoTable; 
+          const head = [Object.keys(dados[0] || {})];
           const body = dados.map(row => Object.values(row));
           
           doc.setFontSize(16);
@@ -316,7 +351,7 @@ const Index = () => {
           doc.setFontSize(10);
           doc.text(`Gerado em: ${format(new Date(), 'dd/MM/yyyy HH:mm', { locale: ptBR })}`, 14, 20);
 
-          (doc as any).autoTable({ 
+          doc.autoTable({ 
               head: head, 
               body: body, 
               startY: 25,
@@ -345,10 +380,11 @@ const Index = () => {
               description: `O relatório '${title}' foi exportado com sucesso.`,
           });
           break;
+      }
           
       case 'csv':
-      default:
-          const headersDefault = Object.keys(dados[0]).join(",");
+      default: {
+          const headersDefault = Object.keys(dados[0] || {}).join(",");
           const rowsDefault = dados.map(e => Object.values(e).join(",")).join("\n");
           const csvContentDefault = `${headersDefault}\n${rowsDefault}`;
 
@@ -365,23 +401,13 @@ const Index = () => {
               description: `O relatório '${title}' foi exportado com sucesso.`,
           });
           break;
+      }
     }
   };
 
 
-  // --- NOVAS FUNÇÕES PARA EXPORTAÇÃO DE ESTOQUE ---
-
-  // 1. Prepara a abertura do modal de ESCOLHA de exportação (CHAPA)
-  const handleChapasExportChoice = (formato: ExportFormat) => {
-    setExportState({
-      open: true,
-      format: formato,
-      type: 'chapas',
-    });
-  };
-
-  // 2. Prepara a abertura do modal de ESCOLHA de exportação (HISTÓRICO)
-  const handleHistoricoExportChoice = (dados: any[], periodo: PeriodoFiltro, formato: ExportFormat) => {
+  // FUNÇÃO DE EXPORTAÇÃO PARA O HISTÓRICO DE MOVIMENTAÇÕES
+  const handleHistoricoExportChoice = (dados: MovimentacaoExport[], periodo: PeriodoFiltro, formato: ExportFormat) => {
     setExportState({
       open: true,
       format: formato,
@@ -391,14 +417,23 @@ const Index = () => {
     });
   };
 
-  // 3. Executa a exportação de ESTOQUE com base na ESCOLHA do usuário
+  // Prepara a abertura do modal de ESCOLHA de exportação (CHAPA)
+  const handleChapasExportChoice = (formato: ExportFormat) => {
+    setExportState({
+      open: true,
+      format: formato,
+      type: 'chapas',
+    });
+  };
+
+  // Executa a exportação de ESTOQUE com base na ESCOLHA do usuário
   const executeChapasExport = (scope: ExportScope) => {
     if (!exportState.format) return;
     
     const chapasToExport = scope === 'filtered' ? filteredChapas : allChapas;
-    const title = "Relatório de Estoque Atual";
+    const title = `Relatório de Estoque Atual - Escopo: ${scope === 'filtered' ? 'FILTRADO' : 'COMPLETO'}`;
     
-    const dadosExportacao = chapasToExport.map(chapa => ({
+    const dadosExportacao: ExportData[] = chapasToExport.map(chapa => ({
         Código: chapa.codigo,
         Descrição: chapa.descricao,
         "Dimensões (mm)": `${chapa.espessura} x ${chapa.largura} x ${chapa.comprimento}`,
@@ -411,16 +446,30 @@ const Index = () => {
     setExportState({ open: false, format: null, type: null });
   };
   
-  // 4. Executa a exportação de HISTÓRICO com base na ESCOLHA do usuário
+  // Executa a exportação de HISTÓRICO com base na ESCOLHA do usuário
   const executeHistoricoExport = (scope: ExportScope) => {
     if (!exportState.format || !exportState.historicoData || !exportState.historicoPeriodo) return;
     
     const title = `Relatório de Movimentações - Período: ${exportState.historicoPeriodo.toUpperCase()}`;
     
-    // NOTA: Para Histórico, o "Exportar Todos" deveria ignorar o filtro de data,
-    // mas o HistóricoMovimentacoes.tsx só tem os dados filtrados em memória.
-    // Para simplificar, o escopo 'all' aqui é ignorado, e o Histórico sempre exporta o que está na tela (filtrado por data).
-    baseExportLogic(exportState.historicoData, `historico_${exportState.historicoPeriodo}`, exportState.format, title);
+    const dadosExportacao: ExportData[] = exportState.historicoData.map((mov: MovimentacaoExport) => {
+        const chapa = mov.chapas_data;
+        const pesoUnitario = chapa.quantidade > 0 ? Math.abs(chapa.peso) / chapa.quantidade : 0;
+        const pesoMovimentado = pesoUnitario * mov.quantidade;
+        const sinal = mov.tipo === "entrada" ? '+' : '-';
+        
+        return {
+            "Data / Hora": format(new Date(mov.created_at), "dd/MM/yyyy HH:mm", { locale: ptBR }),
+            Tipo: mov.tipo === "entrada" ? "ENTRADA" : "SAÍDA",
+            Codigo: chapa.codigo,
+            Descrição: chapa.descricao,
+            Quantidade: `${sinal}${mov.quantidade}`,
+            "Peso (kg)": `${sinal}${pesoMovimentado.toFixed(2)}`,
+            Usuário: mov.profiles?.nome || 'Desconhecido',
+        };
+    });
+
+    baseExportLogic(dadosExportacao, `historico_${exportState.historicoPeriodo}`, exportState.format, title);
     setExportState({ open: false, format: null, type: null });
   };
 
@@ -484,14 +533,14 @@ const Index = () => {
           onDescontar={handleDescontar}
           onAdicionar={handleAdicionar}
           onExcluir={handleExcluir}
-          onExportarChapas={handleChapasExportChoice} // Chama o modal de escolha de exportação
-          onOpenFullScreen={() => setFullScreenChapasOpen(true)} // Ação de Tela Cheia
+          onExportarChapas={handleChapasExportChoice}
+          onOpenFullScreen={() => setFullScreenChapasOpen(true)}
         />
 
         <HistoricoMovimentacoes 
           periodoFiltro={periodoFiltro} 
           onPeriodoChange={setPeriodoFiltro}
-          onExportar={handleHistoricoExportChoice} // Chama o modal de escolha de exportação
+          onExportar={handleHistoricoExportChoice}
           getPeriodDates={getPeriodDates}
         />
       </main>
@@ -516,7 +565,6 @@ const Index = () => {
         }}
       />
       
-      {/* DIÁLOGO DE CONFIRMAÇÃO DE EXCLUSÃO */}
       <AlertDialog open={deleteChapaOpen} onOpenChange={setDeleteChapaOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
@@ -534,19 +582,19 @@ const Index = () => {
         </AlertDialogContent>
       </AlertDialog>
 
-      {/* NOVO: MODAL DE VISUALIZAÇÃO EM TELA CHEIA */}
       <ChapasFullScreenDialog
         open={fullScreenChapasOpen}
         onOpenChange={setFullScreenChapasOpen}
-        chapas={filteredChapas} // Sempre mostra os dados filtrados/buscados
+        chapas={filteredFullScreenChapas}
         userRole={profile?.role || 'operador'}
         onDescontar={handleDescontar}
         onAdicionar={handleAdicionar}
         onExcluir={handleExcluir}
-        onExportarChapas={handleChapasExportChoice} // Permite exportar a partir do modal
+        onExportarChapas={handleChapasExportChoice}
+        searchTerm={fullScreenSearchTerm} 
+        setSearchTerm={setFullScreenSearchTerm}
       />
       
-      {/* NOVO: MODAL DE ESCOLHA DE EXPORTAÇÃO (FILTRO VS TODOS) */}
       <AlertDialog open={exportState.open} onOpenChange={(open) => setExportState({ open, format: null, type: null })}>
         <AlertDialogContent>
           <AlertDialogHeader>
@@ -567,12 +615,11 @@ const Index = () => {
               </>
             ) : (
                <>
-                {/* Nota: Histórico sempre exporta o que foi buscado pelo filtro de data */}
                 <Button variant="outline" onClick={() => executeHistoricoExport('all')}> 
-                   Exportar Histórico Completo (Ignorar Filtro de Data)
+                   Exportar Histórico Filtrado (Data/Limite)
                 </Button>
                 <Button onClick={() => executeHistoricoExport('filtered')}>
-                    Exportar Histórico Filtrado por Data
+                    Exportar Histórico Filtrado (Data/Limite)
                 </Button>
               </>
             )}
