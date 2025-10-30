@@ -257,86 +257,107 @@ const Index = () => {
     setChapaToDelete(null);
   };
   
+  const baseExportLogic = (dados: any[], fileNameBase: string, formato: ExportFormat, title: string) => {
+    if (dados.length === 0) return;
+
+    const fileName = `${fileNameBase}_${formatISO(new Date(), { format: 'basic' })}`;
+    
+    switch (formato) {
+      case 'xlsx':
+          const ws = XLSX.utils.json_to_sheet(dados);
+          const wb = XLSX.utils.book_new();
+          XLSX.utils.book_append_sheet(wb, ws, title.split('-')[0].trim());
+          XLSX.writeFile(wb, `${fileName}.xlsx`);
+          
+          toast({
+              title: "Exportação XLSX Concluída",
+              description: `O relatório '${title}' foi exportado com sucesso.`,
+          });
+          break;
+          
+      case 'pdf':
+          const doc = new jsPDF();
+          const head = [Object.keys(dados[0])];
+          const body = dados.map(row => Object.values(row));
+          
+          doc.setFontSize(16);
+          doc.text(title, 14, 15);
+          doc.setFontSize(10);
+          doc.text(`Gerado em: ${format(new Date(), 'dd/MM/yyyy HH:mm', { locale: ptBR })}`, 14, 20);
+
+          (doc as any).autoTable({ 
+              head: head, 
+              body: body, 
+              startY: 25,
+              theme: 'striped',
+              headStyles: { 
+                  fillColor: [30, 50, 70], 
+                  textColor: 255, 
+                  fontSize: 9, 
+                  valign: 'middle',
+                  halign: 'center',
+              },
+              styles: { 
+                  fontSize: 8,
+                  halign: 'left',
+              },
+              columnStyles: { 
+                  4: { halign: 'center' }, 
+                  5: { halign: 'center' }, 
+              }
+          });
+          
+          doc.save(`${fileName}.pdf`);
+          
+          toast({
+              title: "Exportação PDF Concluída",
+              description: `O relatório '${title}' foi exportado com sucesso.`,
+          });
+          break;
+          
+      case 'csv':
+      default:
+          const headersDefault = Object.keys(dados[0]).join(",");
+          const rowsDefault = dados.map(e => Object.values(e).join(",")).join("\n");
+          const csvContentDefault = `${headersDefault}\n${rowsDefault}`;
+
+          const encodedUriDefault = encodeURI(`data:text/csv;charset=utf-8,${csvContentDefault}`);
+          const linkDefault = document.createElement("a");
+          linkDefault.setAttribute("href", encodedUriDefault);
+          linkDefault.setAttribute("download", `${fileName}.csv`); 
+          document.body.appendChild(linkDefault);
+          linkDefault.click();
+          document.body.removeChild(linkDefault);
+          
+          toast({
+              title: "Exportação CSV Concluída",
+              description: `O relatório '${title}' foi exportado com sucesso.`,
+          });
+          break;
+    }
+  };
+
+
+  // FUNÇÃO DE EXPORTAÇÃO PARA O HISTÓRICO DE MOVIMENTAÇÕES
   const handleExportarHistorico = (dados: any[], periodo: PeriodoFiltro, formato: ExportFormat) => {
-      if (dados.length === 0) return;
+      const title = `Relatório de Movimentações - Período: ${periodo.toUpperCase()}`;
+      baseExportLogic(dados, `historico_${periodo}`, formato, title);
+  };
+  
+  // FUNÇÃO DE EXPORTAÇÃO PARA A TABELA DE ESTOQUE (CHAPA)
+  const handleExportarChapas = (chapasData: Chapa[], formato: ExportFormat) => {
+      const title = "Relatório de Estoque Atual";
       
-      const fileName = `historico_movimentacoes_${periodo}_${formatISO(new Date(), { format: 'basic' })}`;
+      const dadosExportacao = chapasData.map(chapa => ({
+          Código: chapa.codigo,
+          Descrição: chapa.descricao,
+          "Dimensões (mm)": `${chapa.espessura} x ${chapa.largura} x ${chapa.comprimento}`,
+          Quantidade: `${chapa.quantidade} ${chapa.unidade}`,
+          "Peso Total (kg)": chapa.peso.toFixed(2),
+          Localização: chapa.localizacao || '-',
+      }));
       
-      switch (formato) {
-        case 'xlsx':
-            const ws = XLSX.utils.json_to_sheet(dados);
-            const wb = XLSX.utils.book_new();
-            XLSX.utils.book_append_sheet(wb, ws, "Movimentações");
-            XLSX.writeFile(wb, `${fileName}.xlsx`);
-            
-            toast({
-                title: "Exportação XLSX Concluída",
-                description: `O histórico de ${periodo} foi exportado como XLSX.`,
-            });
-            break;
-            
-        case 'pdf':
-            const doc = new jsPDF();
-            const head = [Object.keys(dados[0])];
-            const body = dados.map(row => Object.values(row));
-            
-            // Adiciona Título ao PDF
-            doc.setFontSize(16);
-            doc.text(`Relatório de Movimentações - Período: ${periodo.toUpperCase()}`, 14, 15);
-            doc.setFontSize(10);
-            doc.text(`Gerado em: ${format(new Date(), 'dd/MM/yyyy HH:mm', { locale: ptBR })}`, 14, 20);
-
-            // Estilos mais profissionais para a tabela PDF
-            (doc as any).autoTable({ 
-                head: head, 
-                body: body, 
-                startY: 25,
-                theme: 'striped',
-                headStyles: { 
-                    fillColor: [30, 50, 70], // Azul Escuro
-                    textColor: 255, 
-                    fontSize: 9, 
-                    valign: 'middle',
-                    halign: 'center',
-                },
-                styles: { 
-                    fontSize: 8,
-                    halign: 'left',
-                },
-                columnStyles: { 
-                    4: { halign: 'center' }, // Coluna Quantidade
-                    5: { halign: 'center' }, // Coluna Peso
-                }
-            });
-            
-            doc.save(`${fileName}.pdf`);
-            
-            toast({
-                title: "Exportação PDF Concluída",
-                description: `O histórico de ${periodo} foi exportado como PDF.`,
-            });
-            break;
-            
-        case 'csv':
-        default:
-            const headersDefault = Object.keys(dados[0]).join(",");
-            const rowsDefault = dados.map(e => Object.values(e).join(",")).join("\n");
-            const csvContentDefault = `${headersDefault}\n${rowsDefault}`;
-
-            const encodedUriDefault = encodeURI(`data:text/csv;charset=utf-8,${csvContentDefault}`);
-            const linkDefault = document.createElement("a");
-            linkDefault.setAttribute("href", encodedUriDefault);
-            linkDefault.setAttribute("download", `${fileName}.csv`); 
-            document.body.appendChild(linkDefault);
-            linkDefault.click();
-            document.body.removeChild(linkDefault);
-            
-            toast({
-                title: "Exportação Concluída",
-                description: `O histórico de ${periodo} foi exportado como CSV.`,
-            });
-            break;
-      }
+      baseExportLogic(dadosExportacao, 'estoque_chapas', formato, title);
   };
 
 
@@ -399,6 +420,7 @@ const Index = () => {
           onDescontar={handleDescontar}
           onAdicionar={handleAdicionar}
           onExcluir={handleExcluir}
+          onExportarChapas={handleExportarChapas} 
         />
 
         <HistoricoMovimentacoes 
