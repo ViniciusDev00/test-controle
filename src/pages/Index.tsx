@@ -1,4 +1,4 @@
-// ARQUIVO: src/pages/Index.tsx
+// ARQUIVO: src/pages/Index.tsx (SUBSTITUIR)
 
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
@@ -12,6 +12,7 @@ import ChapasList from "@/components/ChapasList";
 import MovimentacaoDialog from "@/components/MovimentacaoDialog";
 import NovaChapaDialog from "@/components/NovaChapaDialog";
 import HistoricoMovimentacoes from "@/components/HistoricoMovimentacoes";
+import ChapasFullScreenDialog from "@/components/ChapasFullScreenDialog"; // NOVO: Importando a tela cheia
 import { useToast } from "@/hooks/use-toast";
 import { 
   AlertDialog,
@@ -31,6 +32,7 @@ import { ptBR } from "date-fns/locale";
 
 type ExportFormat = 'csv' | 'xlsx' | 'pdf';
 type PeriodoFiltro = 'hoje' | 'semana' | 'mes' | 'todos';
+type ExportScope = 'filtered' | 'all'; // NOVO: Para a escolha de exportação
 
 interface Chapa {
   id: string;
@@ -50,6 +52,15 @@ interface Profile {
   nome: string;
 }
 
+// ESTADOS PARA CONTROLE DE EXPORTAÇÃO
+interface ExportState {
+  open: boolean;
+  format: ExportFormat | null;
+  type: 'chapas' | 'historico' | null;
+  historicoData?: any[];
+  historicoPeriodo?: PeriodoFiltro;
+}
+
 const Index = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
@@ -67,6 +78,11 @@ const Index = () => {
   const [chapaToDelete, setChapaToDelete] = useState<Chapa | null>(null);
 
   const [periodoFiltro, setPeriodoFiltro] = useState<PeriodoFiltro>('mes'); 
+  
+  // NOVOS ESTADOS PARA FUNCIONALIDADES DE TELA
+  const [fullScreenChapasOpen, setFullScreenChapasOpen] = useState(false); // Tela Cheia
+  const [exportState, setExportState] = useState<ExportState>({ open: false, format: null, type: null }); // Escolha de Exportação
+  const [allChapas, setAllChapas] = useState<Chapa[]>([]); // Estoque Completo para Exportar Todos
 
   const [stats, setStats] = useState({
     totalChapas: 0,
@@ -75,6 +91,7 @@ const Index = () => {
     saidasMes: 0,
   });
 
+  // ... useEffects (autenticação, stats, filtros) ...
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (session) {
@@ -101,6 +118,7 @@ const Index = () => {
     if (user) {
       loadChapas();
       loadStats();
+      loadAllChapas(); // NOVO: Carrega todos para exportação
 
       const channel = supabase
         .channel("chapas-changes")
@@ -114,6 +132,7 @@ const Index = () => {
           () => {
             loadChapas();
             loadStats();
+            loadAllChapas(); // Recarrega todos
           }
         )
         .subscribe();
@@ -158,6 +177,18 @@ const Index = () => {
       startDate: startDate, 
       endDate: endDate 
     };
+  };
+
+  // NOVO: Carrega todas as chapas (usado para Exportar Tudo)
+  const loadAllChapas = async () => {
+    const { data } = await supabase
+      .from("chapas")
+      .select("*")
+      .order("codigo", { ascending: true });
+
+    if (data) {
+      setAllChapas(data as unknown as Chapa[]);
+    }
   };
 
   const loadProfile = async (userId: string) => {
@@ -330,7 +361,7 @@ const Index = () => {
           document.body.removeChild(linkDefault);
           
           toast({
-              title: "Exportação CSV Concluída",
+              title: "Exportação Concluída",
               description: `O relatório '${title}' foi exportado com sucesso.`,
           });
           break;
@@ -338,26 +369,59 @@ const Index = () => {
   };
 
 
-  // FUNÇÃO DE EXPORTAÇÃO PARA O HISTÓRICO DE MOVIMENTAÇÕES
-  const handleExportarHistorico = (dados: any[], periodo: PeriodoFiltro, formato: ExportFormat) => {
-      const title = `Relatório de Movimentações - Período: ${periodo.toUpperCase()}`;
-      baseExportLogic(dados, `historico_${periodo}`, formato, title);
+  // --- NOVAS FUNÇÕES PARA EXPORTAÇÃO DE ESTOQUE ---
+
+  // 1. Prepara a abertura do modal de ESCOLHA de exportação (CHAPA)
+  const handleChapasExportChoice = (formato: ExportFormat) => {
+    setExportState({
+      open: true,
+      format: formato,
+      type: 'chapas',
+    });
+  };
+
+  // 2. Prepara a abertura do modal de ESCOLHA de exportação (HISTÓRICO)
+  const handleHistoricoExportChoice = (dados: any[], periodo: PeriodoFiltro, formato: ExportFormat) => {
+    setExportState({
+      open: true,
+      format: formato,
+      type: 'historico',
+      historicoData: dados,
+      historicoPeriodo: periodo,
+    });
+  };
+
+  // 3. Executa a exportação de ESTOQUE com base na ESCOLHA do usuário
+  const executeChapasExport = (scope: ExportScope) => {
+    if (!exportState.format) return;
+    
+    const chapasToExport = scope === 'filtered' ? filteredChapas : allChapas;
+    const title = "Relatório de Estoque Atual";
+    
+    const dadosExportacao = chapasToExport.map(chapa => ({
+        Código: chapa.codigo,
+        Descrição: chapa.descricao,
+        "Dimensões (mm)": `${chapa.espessura} x ${chapa.largura} x ${chapa.comprimento}`,
+        Quantidade: `${chapa.quantidade} ${chapa.unidade}`,
+        "Peso Total (kg)": chapa.peso.toFixed(2),
+        Localização: chapa.localizacao || '-',
+    }));
+    
+    baseExportLogic(dadosExportacao, 'estoque_chapas', exportState.format, title);
+    setExportState({ open: false, format: null, type: null });
   };
   
-  // FUNÇÃO DE EXPORTAÇÃO PARA A TABELA DE ESTOQUE (CHAPA)
-  const handleExportarChapas = (chapasData: Chapa[], formato: ExportFormat) => {
-      const title = "Relatório de Estoque Atual";
-      
-      const dadosExportacao = chapasData.map(chapa => ({
-          Código: chapa.codigo,
-          Descrição: chapa.descricao,
-          "Dimensões (mm)": `${chapa.espessura} x ${chapa.largura} x ${chapa.comprimento}`,
-          Quantidade: `${chapa.quantidade} ${chapa.unidade}`,
-          "Peso Total (kg)": chapa.peso.toFixed(2),
-          Localização: chapa.localizacao || '-',
-      }));
-      
-      baseExportLogic(dadosExportacao, 'estoque_chapas', formato, title);
+  // 4. Executa a exportação de HISTÓRICO com base na ESCOLHA do usuário
+  const executeHistoricoExport = (scope: ExportScope) => {
+    if (!exportState.format || !exportState.historicoData || !exportState.historicoPeriodo) return;
+    
+    const title = `Relatório de Movimentações - Período: ${exportState.historicoPeriodo.toUpperCase()}`;
+    
+    // NOTA: Para Histórico, o "Exportar Todos" deveria ignorar o filtro de data,
+    // mas o HistóricoMovimentacoes.tsx só tem os dados filtrados em memória.
+    // Para simplificar, o escopo 'all' aqui é ignorado, e o Histórico sempre exporta o que está na tela (filtrado por data).
+    baseExportLogic(exportState.historicoData, `historico_${exportState.historicoPeriodo}`, exportState.format, title);
+    setExportState({ open: false, format: null, type: null });
   };
 
 
@@ -420,13 +484,14 @@ const Index = () => {
           onDescontar={handleDescontar}
           onAdicionar={handleAdicionar}
           onExcluir={handleExcluir}
-          onExportarChapas={handleExportarChapas} 
+          onExportarChapas={handleChapasExportChoice} // Chama o modal de escolha de exportação
+          onOpenFullScreen={() => setFullScreenChapasOpen(true)} // Ação de Tela Cheia
         />
 
         <HistoricoMovimentacoes 
           periodoFiltro={periodoFiltro} 
           onPeriodoChange={setPeriodoFiltro}
-          onExportar={handleExportarHistorico}
+          onExportar={handleHistoricoExportChoice} // Chama o modal de escolha de exportação
           getPeriodDates={getPeriodDates}
         />
       </main>
@@ -451,6 +516,7 @@ const Index = () => {
         }}
       />
       
+      {/* DIÁLOGO DE CONFIRMAÇÃO DE EXCLUSÃO */}
       <AlertDialog open={deleteChapaOpen} onOpenChange={setDeleteChapaOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
@@ -464,6 +530,52 @@ const Index = () => {
             <AlertDialogAction onClick={confirmExclusao}>
               Sim, Excluir
             </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* NOVO: MODAL DE VISUALIZAÇÃO EM TELA CHEIA */}
+      <ChapasFullScreenDialog
+        open={fullScreenChapasOpen}
+        onOpenChange={setFullScreenChapasOpen}
+        chapas={filteredChapas} // Sempre mostra os dados filtrados/buscados
+        userRole={profile?.role || 'operador'}
+        onDescontar={handleDescontar}
+        onAdicionar={handleAdicionar}
+        onExcluir={handleExcluir}
+        onExportarChapas={handleChapasExportChoice} // Permite exportar a partir do modal
+      />
+      
+      {/* NOVO: MODAL DE ESCOLHA DE EXPORTAÇÃO (FILTRO VS TODOS) */}
+      <AlertDialog open={exportState.open} onOpenChange={(open) => setExportState({ open, format: null, type: null })}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Opções de Exportação ({exportState.format?.toUpperCase()})</AlertDialogTitle>
+            <AlertDialogDescription>
+              A sua tabela de {exportState.type === 'chapas' ? 'Estoque' : 'Histórico'} possui filtros aplicados (busca ou período de data). Qual escopo de dados você deseja exportar?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            {exportState.type === 'chapas' ? (
+              <>
+                <Button variant="outline" onClick={() => executeChapasExport('all')}>
+                    Exportar Todas as {allChapas.length} Chapas (Sem Filtro)
+                </Button>
+                <Button onClick={() => executeChapasExport('filtered')} disabled={filteredChapas.length === 0}>
+                    Exportar {filteredChapas.length} Chapas Filtradas
+                </Button>
+              </>
+            ) : (
+               <>
+                {/* Nota: Histórico sempre exporta o que foi buscado pelo filtro de data */}
+                <Button variant="outline" onClick={() => executeHistoricoExport('all')}> 
+                   Exportar Histórico Completo (Ignorar Filtro de Data)
+                </Button>
+                <Button onClick={() => executeHistoricoExport('filtered')}>
+                    Exportar Histórico Filtrado por Data
+                </Button>
+              </>
+            )}
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
