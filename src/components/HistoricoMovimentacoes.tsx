@@ -1,3 +1,5 @@
+// ARQUIVO: src/components/HistoricoMovimentacoes.tsx
+
 import { useEffect, useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -15,16 +17,20 @@ import {
   DropdownMenuItem 
 } from "@/components/ui/dropdown-menu";
 
+interface ChapaData {
+    codigo: string;
+    descricao: string;
+    quantidade: number;
+    peso: number;
+}
+
 interface Movimentacao {
   id: string;
   tipo: string;
   quantidade: number;
   observacao: string | null;
   created_at: string;
-  chapas: {
-    codigo: string;
-    descricao: string;
-  };
+  chapas_data: ChapaData; 
   profiles: {
     nome: string;
   } | null;
@@ -79,7 +85,7 @@ const HistoricoMovimentacoes = ({
       .from("movimentacoes")
       .select(`
         *,
-        chapas (codigo, descricao),
+        chapas_data:chapas (codigo, descricao, quantidade, peso),
         profiles (nome)
       `)
       .order("created_at", { ascending: false });
@@ -109,15 +115,24 @@ const HistoricoMovimentacoes = ({
   };
   
   const handleExportClick = (formato: ExportFormat) => {
-      const dadosParaExportar = movimentacoes.map(mov => ({
-          DataHora: format(new Date(mov.created_at), "dd/MM/yyyy HH:mm", { locale: ptBR }),
-          Tipo: mov.tipo === "entrada" ? "Entrada" : "Saída",
-          CodigoChapa: mov.chapas.codigo,
-          DescricaoChapa: mov.chapas.descricao,
-          Quantidade: mov.tipo === "entrada" ? `+${mov.quantidade}` : `-${mov.quantidade}`,
-          Usuario: mov.profiles?.nome || 'Desconhecido',
-          Observacao: mov.observacao || '-',
-      }));
+      // O mapeamento abaixo garante que as chaves do objeto (que viram cabeçalhos)
+      // tenham nomes limpos e formatados para a exportação (XLSX/PDF)
+      const dadosParaExportar = movimentacoes.map(mov => {
+          const chapa = mov.chapas_data;
+          const pesoUnitario = chapa.quantidade > 0 ? Math.abs(chapa.peso) / chapa.quantidade : 0;
+          const pesoMovimentado = pesoUnitario * mov.quantidade;
+          const sinal = mov.tipo === "entrada" ? '+' : '-';
+          
+          return {
+              "Data / Hora": format(new Date(mov.created_at), "dd/MM/yyyy HH:mm", { locale: ptBR }),
+              Tipo: mov.tipo === "entrada" ? "ENTRADA" : "SAÍDA", // Padronizado e Capitalizado
+              Codigo: chapa.codigo,
+              Descrição: chapa.descricao,
+              Quantidade: `${sinal}${mov.quantidade}`,
+              "Peso (kg)": `${sinal}${pesoMovimentado.toFixed(2)}`, // 2 casas decimais
+              Usuário: mov.profiles?.nome || 'Desconhecido',
+          };
+      });
       onExportar(dadosParaExportar, periodoFiltro, formato);
   };
 
@@ -187,8 +202,8 @@ const HistoricoMovimentacoes = ({
                 <TableHead>Tipo</TableHead>
                 <TableHead>Chapa</TableHead>
                 <TableHead className="text-center">Quantidade</TableHead>
+                <TableHead className="text-center">Peso (kg)</TableHead>
                 <TableHead>Usuário</TableHead>
-                <TableHead>Observação</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -205,42 +220,50 @@ const HistoricoMovimentacoes = ({
                   </TableCell>
                 </TableRow>
               ) : (
-                movimentacoes.map((mov) => (
-                  <TableRow key={mov.id}>
-                    <TableCell className="text-sm">
-                      {format(new Date(mov.created_at), "dd/MM/yyyy HH:mm", { locale: ptBR })}
-                    </TableCell>
-                    <TableCell>
-                      <Badge variant={mov.tipo === "entrada" ? "default" : "secondary"}>
-                        {mov.tipo === "entrada" ? (
-                          <>
-                            <TrendingUp className="h-3 w-3 mr-1" />
-                            Entrada
-                          </>
-                        ) : (
-                          <>
-                            <TrendingDown className="h-3 w-3 mr-1" />
-                            Saída
-                          </>
-                        )}
-                      </Badge>
-                    </TableCell>
-                    <TableCell>
-                      <div className="text-sm">
-                        <div className="font-medium">{mov.chapas.codigo}</div>
-                        <div className="text-muted-foreground">{mov.chapas.descricao}</div>
-                      </div>
-                    </TableCell>
-                    <TableCell className="text-center font-medium">
-                      {mov.tipo === "entrada" ? "+" : "-"}
-                      {mov.quantidade}
-                    </TableCell>
-                    <TableCell>{mov.profiles?.nome || 'Usuário Desconhecido'}</TableCell>
-                    <TableCell className="max-w-xs truncate">
-                      {mov.observacao || "-"}
-                    </TableCell>
-                  </TableRow>
-                ))
+                movimentacoes.map((mov) => {
+                  const chapa = mov.chapas_data;
+                  const pesoUnitario = chapa.quantidade > 0 ? Math.abs(chapa.peso) / chapa.quantidade : 0;
+                  const pesoMovimentado = pesoUnitario * mov.quantidade;
+                  const sinal = mov.tipo === "entrada" ? '+' : '-';
+                  
+                  return (
+                    <TableRow key={mov.id}>
+                      <TableCell className="text-sm">
+                        {format(new Date(mov.created_at), "dd/MM/yyyy HH:mm", { locale: ptBR })}
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant={mov.tipo === "entrada" ? "default" : "secondary"}>
+                          {mov.tipo === "entrada" ? (
+                            <>
+                              <TrendingUp className="h-3 w-3 mr-1" />
+                              Entrada
+                            </>
+                          ) : (
+                            <>
+                              <TrendingDown className="h-3 w-3 mr-1" />
+                              Saída
+                            </>
+                          )}
+                        </Badge>
+                      </TableCell>
+                      <TableCell>
+                        <div className="text-sm">
+                          <div className="font-medium">{chapa.codigo}</div>
+                          <div className="text-muted-foreground">{chapa.descricao}</div>
+                        </div>
+                      </TableCell>
+                      <TableCell className="text-center font-medium">
+                        {sinal}
+                        {mov.quantidade}
+                      </TableCell>
+                      <TableCell className="text-center font-medium">
+                        {sinal}
+                        {pesoMovimentado.toFixed(2)} kg
+                      </TableCell>
+                      <TableCell>{mov.profiles?.nome || 'Usuário Desconhecido'}</TableCell>
+                    </TableRow>
+                  );
+                })
               )}
             </TableBody>
           </Table>

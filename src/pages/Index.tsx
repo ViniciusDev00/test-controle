@@ -1,3 +1,5 @@
+// ARQUIVO: src/pages/Index.tsx
+
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
@@ -21,10 +23,11 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { startOfWeek, endOfWeek, startOfMonth, endOfMonth, subDays, formatISO } from "date-fns";
+import { startOfWeek, endOfWeek, startOfMonth, endOfMonth, subDays, formatISO, format } from "date-fns";
 import * as XLSX from 'xlsx'; 
 import { jsPDF } from 'jspdf';
 import 'jspdf-autotable';
+import { ptBR } from "date-fns/locale";
 
 type ExportFormat = 'csv' | 'xlsx' | 'pdf';
 type PeriodoFiltro = 'hoje' | 'semana' | 'mes' | 'todos';
@@ -257,7 +260,7 @@ const Index = () => {
   const handleExportarHistorico = (dados: any[], periodo: PeriodoFiltro, formato: ExportFormat) => {
       if (dados.length === 0) return;
       
-      const fileName = `historico_${periodo}_${formatISO(new Date(), { format: 'basic' })}`;
+      const fileName = `historico_movimentacoes_${periodo}_${formatISO(new Date(), { format: 'basic' })}`;
       
       switch (formato) {
         case 'xlsx':
@@ -277,12 +280,33 @@ const Index = () => {
             const head = [Object.keys(dados[0])];
             const body = dados.map(row => Object.values(row));
             
+            // Adiciona Título ao PDF
+            doc.setFontSize(16);
+            doc.text(`Relatório de Movimentações - Período: ${periodo.toUpperCase()}`, 14, 15);
+            doc.setFontSize(10);
+            doc.text(`Gerado em: ${format(new Date(), 'dd/MM/yyyy HH:mm', { locale: ptBR })}`, 14, 20);
+
+            // Estilos mais profissionais para a tabela PDF
             (doc as any).autoTable({ 
                 head: head, 
                 body: body, 
-                startY: 10,
-                headStyles: { fillColor: [52, 73, 94] },
-                margin: { top: 15 }
+                startY: 25,
+                theme: 'striped',
+                headStyles: { 
+                    fillColor: [30, 50, 70], // Azul Escuro
+                    textColor: 255, 
+                    fontSize: 9, 
+                    valign: 'middle',
+                    halign: 'center',
+                },
+                styles: { 
+                    fontSize: 8,
+                    halign: 'left',
+                },
+                columnStyles: { 
+                    4: { halign: 'center' }, // Coluna Quantidade
+                    5: { halign: 'center' }, // Coluna Peso
+                }
             });
             
             doc.save(`${fileName}.pdf`);

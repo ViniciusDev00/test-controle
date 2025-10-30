@@ -12,7 +12,7 @@ interface Chapa {
   largura: number;
   comprimento: number;
   quantidade: number;
-  peso: number;
+  peso: number; // Peso Total em Estoque
   unidade: string;
   localizacao?: string;
 }
@@ -64,8 +64,9 @@ const ChapasList = ({ chapas, userRole, onDescontar, onAdicionar, onEditar, onEx
                       {chapa.quantidade} {chapa.unidade}
                     </Badge>
                   </TableCell>
+                  {/* CORREÇÃO APLICADA AQUI: .toFixed(2) */}
                   <TableCell className="text-center">
-                    <span className="font-medium">{chapa.peso} kg</span>
+                    <span className="font-medium">{chapa.peso.toFixed(2)} kg</span>
                   </TableCell>
                   <TableCell>{chapa.localizacao || "-"}</TableCell>
                   <TableCell className="text-right">
