@@ -50,6 +50,8 @@ interface Chapa {
   peso: number;
   unidade: string;
   localizacao?: string;
+  porta_palete?: string; 
+  longarina?: string;
 }
 
 interface Profile {

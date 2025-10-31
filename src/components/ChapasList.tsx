@@ -26,6 +26,9 @@ interface Chapa {
   peso: number;
   unidade: string;
   localizacao?: string;
+  // NOVOS ATRIBUTOS
+  porta_palete?: string; 
+  longarina?: string;
 }
 
 interface ChapasListProps {
@@ -96,6 +99,8 @@ const ChapasList = ({ chapas, userRole, onDescontar, onAdicionar, onEditar, onEx
             <TableHead className="text-center">Dimensões (mm)</TableHead>
             <TableHead className="text-center">Quantidade</TableHead>
             <TableHead className="text-center">Peso Total (kg)</TableHead>
+            <TableHead>Porta Palete</TableHead> {/* NOVA COLUNA */}
+            <TableHead>Longarina</TableHead> {/* NOVA COLUNA */}
             <TableHead>Localização</TableHead>
             <TableHead className="text-right">Ações</TableHead>
           </TableRow>
@@ -103,7 +108,7 @@ const ChapasList = ({ chapas, userRole, onDescontar, onAdicionar, onEditar, onEx
         <TableBody>
           {chapas.length === 0 ? (
             <TableRow>
-              <TableCell colSpan={7} className="text-center text-muted-foreground py-8">
+              <TableCell colSpan={9} className="text-center text-muted-foreground py-8">
                 Nenhuma chapa cadastrada ainda
               </TableCell>
             </TableRow>
@@ -125,6 +130,8 @@ const ChapasList = ({ chapas, userRole, onDescontar, onAdicionar, onEditar, onEx
                 <TableCell className="text-center">
                   <span className="font-medium">{chapa.peso.toFixed(2)} kg</span>
                 </TableCell>
+                <TableCell>{chapa.porta_palete || "-"}</TableCell> {/* EXIBE NOVA COLUNA */}
+                <TableCell>{chapa.longarina || "-"}</TableCell> {/* EXIBE NOVA COLUNA */}
                 <TableCell>{chapa.localizacao || "-"}</TableCell>
                 <TableCell className="text-right">
                   <div className="flex gap-2 justify-end">
