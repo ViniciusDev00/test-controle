@@ -14,7 +14,6 @@ import NovaChapaDialog from "@/components/NovaChapaDialog";
 import HistoricoMovimentacoes from "@/components/HistoricoMovimentacoes";
 import ChapasFullScreenDialog from "@/components/ChapasFullScreenDialog"; 
 import { useToast } from "@/hooks/use-toast";
-// CORREÇÃO: Importação COMPLETA dos componentes AlertDialog
 import { 
   AlertDialog,
   AlertDialogAction,
@@ -393,7 +392,6 @@ const Index = () => {
           linkDefault.setAttribute("href", encodedUriDefault);
           linkDefault.setAttribute("download", `${fileName}.csv`); 
           document.body.appendChild(linkDefault);
-          linkDefault.click();
           document.body.removeChild(linkDefault);
           
           toast({
@@ -483,8 +481,9 @@ const Index = () => {
   }
 
   return (
-    <div className="min-h-screen bg-background">
-      <header className="border-b bg-card shadow-sm">
+    // Estrutura principal flex para garantir que o footer fique no fim (min-h-screen + flex-col)
+    <div className="min-h-screen bg-background flex flex-col">
+      <header className="border-b bg-card shadow-sm shrink-0">
         <div className="container mx-auto px-4 py-4">
           <div className="flex items-center justify-between">
             <div>
@@ -501,7 +500,7 @@ const Index = () => {
         </div>
       </header>
 
-      <main className="container mx-auto px-4 py-8 space-y-8">
+      <main className="container mx-auto px-4 py-8 space-y-8 flex-grow">
         <StockStats
           totalChapas={stats.totalChapas}
           totalQuantidade={stats.totalQuantidade}
@@ -544,6 +543,16 @@ const Index = () => {
           getPeriodDates={getPeriodDates}
         />
       </main>
+      
+      {/* NOVO: FOOTER RESPONSIVO E BONITINHO */}
+      <footer className="shrink-0 border-t bg-card mt-8">
+        <div className="container mx-auto px-4 py-3 text-center text-sm text-muted-foreground">
+          <p>
+            Sistema de Estoque (v1.0) — Powered by 
+            <span className="font-semibold text-primary ml-1">Vinicius Biancolini</span>
+          </p>
+        </div>
+      </footer>
 
       <MovimentacaoDialog
         open={movimentacaoOpen}
